@@ -1,0 +1,25 @@
+# Large binary / data
+KEMAR_HRTFs_lfcorr.sofa
+*.wav
+*.flac
+*.mp3
+*.m4a
+*.aiff
+
+# Output directories
+outputs/
+spatializer_outputs_clean/
+
+# Input audio
+input_audio/*
+!input_audio/README.md
+
+# Python cache
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Backups
+*.bak_*
