@@ -5,6 +5,8 @@ Implements the notebook's procedural HRTF pipeline:
    rear pinna notch / presence / body reflection, plus 1/r distance attenuation
    and high-frequency air absorption.
 2) Optional post-binaural stereo-matrix room RIR convolution for externalisation.
+3) Optional crosstalk-cancellation export: solve 4.0 speaker feeds that recreate
+   a target binaural stereo signal at the listening position.
 
 The SOFA file ``KEMAR_HRTFs_lfcorr.sofa`` is NOT loaded by this renderer;
 the notebook uses deterministic synthetic cues that are faster and do not
@@ -225,6 +227,128 @@ def render_4ch_binaural(
             y *= ref_rms / out_rms
 
     return y.astype(np.float32)
+
+
+# ---------------------------------------------------------------------------
+# Binaural target -> 4ch speaker feeds with crosstalk cancellation
+# ---------------------------------------------------------------------------
+
+def _next_pow2(n):
+    return 1 << (int(n) - 1).bit_length()
+
+
+def make_4ch_to_ear_ir(
+    sr,
+    front_azimuth_deg=30.0,
+    rear_azimuth_deg=135.0,
+    rear_gain_db=0.0,
+    speaker_distance_front_m=None,
+    speaker_distance_rear_m=None,
+    speaker_ref_distance_m=1.0,
+    air_absorption_db_per_m=0.0,
+    length_samples=4096,
+):
+    """Return transfer IRs from physical 4.0 speakers to the listener's ears.
+
+    Shape: ``(length_samples, speaker_channel, ear_channel)`` where speaker
+    channel order is LF, RF, LB, RB and ear channel order is L, R.
+    """
+    n = max(512, int(length_samples))
+    impulse = np.zeros(n, dtype=np.float32)
+    impulse[0] = 1.0
+    rear_linear = 10.0 ** (rear_gain_db / 20.0)
+    layout = [
+        (-front_azimuth_deg, False, speaker_distance_front_m, 1.0),
+        ( front_azimuth_deg, False, speaker_distance_front_m, 1.0),
+        (-rear_azimuth_deg,  True, speaker_distance_rear_m, rear_linear),
+        ( rear_azimuth_deg,  True, speaker_distance_rear_m, rear_linear),
+    ]
+
+    h = np.zeros((n, 4, 2), dtype=np.float32)
+    for speaker, (azimuth, is_rear, distance_m, gain) in enumerate(layout):
+        rendered = render_virtual_speaker_binaural(
+            impulse * gain,
+            sr,
+            azimuth,
+            is_rear=is_rear,
+            distance_m=distance_m,
+            ref_distance_m=speaker_ref_distance_m,
+            air_absorption_db_per_m=air_absorption_db_per_m,
+        )
+        h[:, speaker, :] = rendered
+    return h.astype(np.float32)
+
+
+def render_binaural_to_ctc_4ch(
+    binaural,
+    sr,
+    front_azimuth_deg=30.0,
+    rear_azimuth_deg=135.0,
+    rear_gain_db=0.0,
+    speaker_distance_front_m=None,
+    speaker_distance_rear_m=None,
+    speaker_ref_distance_m=1.0,
+    air_absorption_db_per_m=0.0,
+    regularization=0.08,
+    ir_length_samples=4096,
+    peak_target=0.98,
+):
+    """Map a target binaural signal onto 4.0 speakers via CTC inverse filtering.
+
+    This solves a regularized minimum-norm inverse per FFT bin:
+    ``speaker = H* (H H* + lambda I)^-1 target``.
+    The result is useful for a centered listener in the assumed 4.0 geometry;
+    moving away from the sweet spot will reduce cancellation quality.
+    """
+    target = np.asarray(binaural, dtype=np.float32)
+    if target.ndim != 2 or target.shape[1] != 2:
+        raise ValueError(f"Expected binaural target shape (n, 2), got {target.shape}")
+
+    h = make_4ch_to_ear_ir(
+        sr,
+        front_azimuth_deg=front_azimuth_deg,
+        rear_azimuth_deg=rear_azimuth_deg,
+        rear_gain_db=rear_gain_db,
+        speaker_distance_front_m=speaker_distance_front_m,
+        speaker_distance_rear_m=speaker_distance_rear_m,
+        speaker_ref_distance_m=speaker_ref_distance_m,
+        air_absorption_db_per_m=air_absorption_db_per_m,
+        length_samples=ir_length_samples,
+    )
+
+    n_signal = target.shape[0]
+    h_len = h.shape[0]
+    n_fft = _next_pow2(max(32768, h_len * 8))
+    block_size = n_fft - h_len + 1
+
+    h_fft = np.fft.rfft(h, n=n_fft, axis=0).astype(np.complex128)  # bins, speaker, ear
+    H = np.transpose(h_fft, (0, 2, 1))  # bins, ear, speaker
+    gram = H @ np.conjugate(np.transpose(H, (0, 2, 1)))  # bins, ear, ear
+    scale = np.maximum(np.real(0.5 * (gram[:, 0, 0] + gram[:, 1, 1])), EPS)
+    reg_term = (max(float(regularization), 1e-5) ** 2) * scale
+    gram[:, 0, 0] += reg_term
+    gram[:, 1, 1] += reg_term
+
+    det = gram[:, 0, 0] * gram[:, 1, 1] - gram[:, 0, 1] * gram[:, 1, 0]
+    inv_gram = np.empty_like(gram)
+    inv_gram[:, 0, 0] = gram[:, 1, 1] / det
+    inv_gram[:, 1, 1] = gram[:, 0, 0] / det
+    inv_gram[:, 0, 1] = -gram[:, 0, 1] / det
+    inv_gram[:, 1, 0] = -gram[:, 1, 0] / det
+
+    inverse = np.conjugate(np.transpose(H, (0, 2, 1))) @ inv_gram  # bins, speaker, ear
+    speakers = np.zeros((n_signal + h_len - 1, 4), dtype=np.float32)
+
+    for start in range(0, n_signal, block_size):
+        chunk = target[start:start + block_size]
+        chunk_fft = np.fft.rfft(chunk, n=n_fft, axis=0)
+        speaker_fft = np.einsum("fse,fe->fs", inverse, chunk_fft)
+        chunk_speakers = np.fft.irfft(speaker_fft, n=n_fft, axis=0).astype(np.float32)
+        out_len = min(chunk.shape[0] + h_len - 1, speakers.shape[0] - start)
+        speakers[start:start + out_len] += chunk_speakers[:out_len]
+
+    speakers = speakers[:n_signal]
+    return peak_normalize_exact(speakers.astype(np.float32), peak_target=peak_target)
 
 
 # ---------------------------------------------------------------------------

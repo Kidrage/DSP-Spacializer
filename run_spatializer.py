@@ -14,7 +14,10 @@ from pathlib import Path
 import config_center as cfg
 from audio_io import discover_audio_files, export_audio, load_audio
 from binaural_renderer import (
-    apply_room_rir_to_binaural, make_small_dry_room_stereo_rir, render_4ch_binaural,
+    apply_room_rir_to_binaural,
+    make_small_dry_room_stereo_rir,
+    render_4ch_binaural,
+    render_binaural_to_ctc_4ch,
 )
 from diagnostics import generate_diagnostics, save_diagnostics
 from dsp_utils import db, peak, rms
@@ -133,11 +136,49 @@ def process_file(input_path, output_dir, options):
         export_audio(path_bin, binaural, sample_rate)
         output_paths["binaural_4p0"] = str(path_bin)
 
+        if options["export_binaural_ctc_4ch"]:
+            ctc_4ch = render_binaural_to_ctc_4ch(
+                binaural,
+                sample_rate,
+                front_azimuth_deg=options["binaural_front_azimuth_deg"],
+                rear_azimuth_deg=options["binaural_rear_azimuth_deg"],
+                rear_gain_db=options["binaural_full_rear_gain_db"],
+                speaker_distance_front_m=options["speaker_distance_front_m"],
+                speaker_distance_rear_m=options["speaker_distance_rear_m"],
+                speaker_ref_distance_m=options["speaker_ref_distance_m"],
+                air_absorption_db_per_m=options["air_absorption_db_per_m"],
+                regularization=options["ctc_regularization"],
+                ir_length_samples=options["ctc_ir_length_samples"],
+                peak_target=options["ctc_peak_target"],
+            )
+            path_ctc = output_dir / f"{stem}_{preset_name}_binaural_ctc_4ch.wav"
+            export_audio(path_ctc, ctc_4ch, sample_rate)
+            output_paths["binaural_ctc_4ch"] = str(path_ctc)
+
         if options["export_binaural_room_rir"] and room_ir is not None:
             room = apply_room_rir_to_binaural(binaural, room_ir, keep_tail=cfg.ROOM_RIR_KEEP_TAIL)
             path_room = output_dir / f"{stem}_{preset_name}_binaural_4p0_room_rir.wav"
             export_audio(path_room, room, sample_rate)
             output_paths["binaural_4p0_room_rir"] = str(path_room)
+
+            if options["export_binaural_ctc_4ch"]:
+                room_ctc_4ch = render_binaural_to_ctc_4ch(
+                    room,
+                    sample_rate,
+                    front_azimuth_deg=options["binaural_front_azimuth_deg"],
+                    rear_azimuth_deg=options["binaural_rear_azimuth_deg"],
+                    rear_gain_db=options["binaural_full_rear_gain_db"],
+                    speaker_distance_front_m=options["speaker_distance_front_m"],
+                    speaker_distance_rear_m=options["speaker_distance_rear_m"],
+                    speaker_ref_distance_m=options["speaker_ref_distance_m"],
+                    air_absorption_db_per_m=options["air_absorption_db_per_m"],
+                    regularization=options["ctc_regularization"],
+                    ir_length_samples=options["ctc_ir_length_samples"],
+                    peak_target=options["ctc_peak_target"],
+                )
+                path_room_ctc = output_dir / f"{stem}_{preset_name}_binaural_ctc_4ch_room_rir.wav"
+                export_audio(path_room_ctc, room_ctc_4ch, sample_rate)
+                output_paths["binaural_ctc_4ch_room_rir"] = str(path_room_ctc)
 
         if options["export_binaural_front_pair"]:
             front = render_4ch_binaural(
@@ -242,9 +283,15 @@ def build_options(args):
         "export_binaural_rear_pair": (
             args.export_binaural_rear_pair or cfg.EXPORT_BINAURAL_REAR_PAIR
         ),
+        "export_binaural_ctc_4ch": (
+            args.export_binaural_ctc_4ch or cfg.EXPORT_BINAURAL_CROSSTALK_CANCELLED_4CH
+        ),
         "binaural_front_azimuth_deg": cfg.BINAURAL_FRONT_AZIMUTH_DEG,
         "binaural_rear_azimuth_deg": cfg.BINAURAL_REAR_AZIMUTH_DEG,
         "binaural_full_rear_gain_db": cfg.BINAURAL_FULL_REAR_GAIN_DB,
+        "ctc_regularization": args.ctc_regularization or cfg.CTC_REGULARIZATION,
+        "ctc_ir_length_samples": args.ctc_ir_length_samples or cfg.CTC_IR_LENGTH_SAMPLES,
+        "ctc_peak_target": cfg.CTC_PEAK_TARGET,
         "export_binaural_room_rir": (
             getattr(args, "export_binaural_room_rir", False) or cfg.EXPORT_BINAURAL_ROOM_RIR
         ),
@@ -289,6 +336,9 @@ def main():
     )
     parser.add_argument("--export-binaural-front-pair", action="store_true")
     parser.add_argument("--export-binaural-rear-pair", action="store_true")
+    parser.add_argument("--export-binaural-ctc-4ch", action="store_true")
+    parser.add_argument("--ctc-regularization", type=float, default=None)
+    parser.add_argument("--ctc-ir-length-samples", type=int, default=None)
     parser.add_argument("--no-diagnostics", action="store_true")
     args = parser.parse_args()
 

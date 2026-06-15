@@ -16,7 +16,7 @@ def apply_preset(preset_dict, analysis, preset_name="manual", apply_analysis_ada
     ----------
     preset_dict : dict
         Flat preset values (side_rear, amb_rear, air_rear, decorrelation,
-        bass_quad, lowbody_rear, rear_floor_ratio, max_rear_makeup,
+        bass_gain, bass_quad, lowbody_rear, rear_floor_ratio, max_rear_makeup,
         rear_air_gain, rear_highmid_gain, guard_scale, rear_master, side_front).
     analysis : dict
         Audio analysis features from streaming_analyzer.
@@ -71,6 +71,7 @@ def apply_preset(preset_dict, analysis, preset_name="manual", apply_analysis_ada
     routing["max_rear_makeup"] = float(np.clip(routing.get("max_rear_makeup", 1.0), 1.0, 8.0))
     routing["rear_air_gain"] = float(np.clip(routing.get("rear_air_gain", 1.0), 0.08, 1.0))
     routing["rear_highmid_gain"] = float(np.clip(routing.get("rear_highmid_gain", 1.0), 0.18, 1.10))
+    routing["bass_gain"] = float(np.clip(routing.get("bass_gain", 1.0), 0.85, 1.30))
     routing["bass_quad"] = float(np.clip(routing.get("bass_quad", 0.0), 0.0, 0.25))
     routing["lowbody_rear"] = float(np.clip(routing.get("lowbody_rear", 0.0), 0.0, 0.60))
 

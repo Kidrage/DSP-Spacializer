@@ -13,6 +13,7 @@
 - ``rear_floor_ratio``：后方 RMS 相对前方 RMS 的最低比例。解决“后方太不明显/不够空间化”。
 - ``max_rear_makeup``：rear floor 最多可补多少倍。越大越敢补后方；过大可能把噪声/齿音抬起来。
 - ``guard_scale``：人声/瞬态保护强度。越大，越保护中心与 punch；过大可能声场不够打开。
+- ``bass_gain``：低频核心层的相对增益。越大，150Hz 以下更有重量；过大可能触发 limiter 或显得轰。
 - ``bass_quad``：低频少量分到四声道。越大，bass 更包围；过大低频定位会散、低频变宽/变糊。
 - ``lowbody_rear``：120-500Hz 体积感送后方。越大，后方更厚；过大可能人声低中频变浑。
 - ``rear_air_gain``：后方 air 频段 tone shaping。越低越不刺；太低后方轮廓会消失。
@@ -22,7 +23,7 @@
 - 不够空间化/后方不显著：优先小幅提高 ``rear_floor_ratio``、``side_rear``、``rear_master``；如果后方仍空，再提高 ``lowbody_rear``。
 - 高频呲/齿音刺：降低 ``air_rear``、``rear_air_gain``、``rear_highmid_gain``，必要时提高 ``guard_scale``。
 - 人声不清晰/中心散：降低 ``side_front``、``side_rear``、``amb_rear``，提高 ``guard_scale``，不要提高 ``decorrelation``。
-- bass 太窄：小幅提高 ``bass_quad`` 或 ``lowbody_rear``；如果低频糊，先退回 ``bass_quad``。
+- bass 量感不足：优先小幅提高 ``bass_gain``；bass 太窄再提高 ``bass_quad`` 或 ``lowbody_rear``。如果低频糊，先退回 ``bass_quad``。
 - 声场太窄：提高 ``side_front`` 与 ``side_rear``，再小幅提高 ``amb_rear``。
 - 音量不均：检查 diagnostics 的 rear/front dB；调低 ``max_rear_makeup`` 或 ``rear_master``，必要时降低输出模式的后方监听增益。
 
@@ -118,12 +119,12 @@ PRESET_ALIASES = {
 }
 
 AUTO_ACOUSTIC_REAR_ENHANCEMENT_PLAN = {
-    "when": "auto_acoustic 听起来整体后方音响偏不显著，但人声/高频仍安全时启用。",
+    "when": "auto_acoustic 听起来整体后方音响偏不显著时启用；会按 vocal_risk 连续衰减，不再只在低风险歌曲生效。",
     "safe_first_step": {
-        "rear_floor_ratio_add": 0.015,
-        "rear_master_add": 0.04,
-        "side_rear_add": 0.08,
-        "max_rear_makeup_add": 0.6,
+        "rear_floor_ratio_add": 0.020,
+        "rear_master_add": 0.05,
+        "side_rear_add": 0.10,
+        "max_rear_makeup_add": 0.7,
     },
     "why": "优先增加后方保底、side 后送和后方总增益，比直接增加 air_rear 更不容易带来齿音和高频呲。",
     "do_not_start_with": ["大幅提高 air_rear", "大幅提高 rear_highmid_gain", "decorrelation 超过 0.55"],
@@ -211,19 +212,28 @@ def generate_auto_acoustic_preset(analysis, rear_enhancement=False):
     narrow_score = _clamp(0.45 * (1.0 - _norm(width, 0.18, 0.36)) + 0.35 * (1.0 - _norm(diffuse, 0.04, 0.18)) + 0.20 * _norm((mid_coh + highmid_coh) * 0.5, 0.72, 0.98), 0.0, 1.0)
     side_material = _clamp(0.35 * _norm(width, 0.18, 0.42) + 0.25 * _norm(mid_side, 0.16, 0.38) + 0.25 * _norm(highmid_side, 0.18, 0.46) + 0.15 * _norm(air_side, 0.18, 0.48), 0.0, 1.0)
 
+    diffuse_energy = _norm(diffuse, 0.05, 0.30)
+    adaptive_intensity = _clamp(0.88 + 0.24 * side_material + 0.10 * diffuse_energy + 0.06 * narrow_score - 0.06 * vocal_risk, 0.82, 1.22)
+
     side_front = _clamp(0.44 + 0.14 * side_material - 0.04 * vocal_risk, 0.38, 0.62)
-    side_rear = _clamp(0.70 + 0.36 * side_material + 0.18 * dry_bass_score + 0.14 * narrow_score - 0.22 * vocal_risk, 0.48, 1.18)
-    amb_rear = _clamp(0.46 + 0.28 * _norm(diffuse, 0.05, 0.28) + 0.12 * narrow_score - 0.18 * hall_score - 0.18 * vocal_risk, 0.28, 0.88)
-    air_rear = _clamp(0.16 + 0.16 * _norm(air_side, 0.18, 0.48) + 0.10 * _norm(diffuse, 0.08, 0.30) - 0.18 * vocal_risk, 0.08, 0.38)
-    rear_master = _clamp(0.88 + 0.16 * side_material + 0.08 * dry_bass_score + 0.08 * narrow_score - 0.06 * vocal_risk, 0.78, 1.12)
+    side_rear = _clamp(0.78 + 0.40 * side_material + 0.20 * dry_bass_score + 0.16 * narrow_score - 0.18 * vocal_risk, 0.56, 1.28)
+    amb_rear = _clamp(0.50 + 0.30 * diffuse_energy + 0.14 * narrow_score - 0.16 * hall_score - 0.15 * vocal_risk, 0.32, 0.96)
+    air_rear = _clamp(0.18 + 0.18 * _norm(air_side, 0.18, 0.48) + 0.11 * _norm(diffuse, 0.08, 0.30) - 0.15 * vocal_risk, 0.09, 0.44)
+    rear_master = _clamp(0.92 + 0.18 * side_material + 0.10 * dry_bass_score + 0.10 * narrow_score - 0.05 * vocal_risk, 0.84, 1.18)
     decorrelation = _clamp(0.28 + 0.12 * side_material + 0.08 * narrow_score - 0.12 * vocal_risk - 0.10 * hall_score - 0.08 * _norm(transient, 0.08, 0.25), 0.16, 0.46)
-    rear_floor_ratio = _clamp(0.078 + 0.040 * narrow_score + 0.018 * dry_bass_score - 0.022 * vocal_risk, 0.055, 0.145)
-    max_rear_makeup = _clamp(2.4 + 1.6 * narrow_score + 0.8 * dry_bass_score - 0.8 * vocal_risk, 1.6, 5.0)
+    rear_floor_ratio = _clamp(0.095 + 0.046 * narrow_score + 0.022 * dry_bass_score + 0.010 * side_material - 0.018 * vocal_risk, 0.075, 0.165)
+    max_rear_makeup = _clamp(2.8 + 1.7 * narrow_score + 0.9 * dry_bass_score - 0.6 * vocal_risk, 2.0, 5.4)
     guard_scale = _clamp(0.72 + 0.62 * vocal_risk - 0.16 * side_material, 0.55, 1.45)
-    bass_quad = _clamp(0.06 + 0.06 * dry_bass_score - 0.025 * vocal_risk - 0.020 * hall_score, 0.035, 0.15)
+    bass_gain = _clamp(1.06 + 0.12 * dry_bass_score + 0.06 * narrow_score + 0.04 * side_material - 0.04 * hall_score, 1.02, 1.22)
+    bass_quad = _clamp(0.08 + 0.075 * dry_bass_score + 0.025 * narrow_score - 0.020 * vocal_risk - 0.015 * hall_score, 0.055, 0.18)
     lowbody_rear = _clamp(0.28 + 0.18 * dry_bass_score + 0.16 * narrow_score + 0.08 * (1.0 - _norm(lowmid_side, 0.22, 0.42)) - 0.04 * vocal_risk, 0.18, 0.58)
     rear_air_gain = _clamp(0.18 + 0.16 * _norm(diffuse, 0.08, 0.32) + 0.08 * _norm(air_side, 0.18, 0.48) - 0.20 * vocal_risk, 0.08, 0.40)
     rear_highmid_gain = _clamp(0.46 + 0.18 * side_material + 0.08 * _norm(highmid_side, 0.18, 0.46) - 0.34 * vocal_risk - 0.10 * hall_score, 0.18, 0.78)
+
+    side_rear = _clamp(side_rear * adaptive_intensity, 0.56, 1.32)
+    amb_rear = _clamp(amb_rear * adaptive_intensity, 0.32, 1.00)
+    air_rear = _clamp(air_rear * (0.92 + 0.12 * adaptive_intensity), 0.09, 0.46)
+    rear_master = _clamp(rear_master * (0.92 + 0.10 * adaptive_intensity), 0.84, 1.22)
 
     if telephone_risk:
         side_rear = min(side_rear, 0.92)
@@ -235,6 +245,7 @@ def generate_auto_acoustic_preset(analysis, rear_enhancement=False):
         rear_air_gain = min(max(rear_air_gain, 0.20), 0.34)
         rear_highmid_gain = min(max(rear_highmid_gain, 0.34), 0.48)
         guard_scale = max(guard_scale, 1.10)
+        bass_gain = min(max(bass_gain, 1.06), 1.16)
         lowbody_rear = max(lowbody_rear, 0.46)
 
     if hall_score > 0.65:
@@ -245,22 +256,25 @@ def generate_auto_acoustic_preset(analysis, rear_enhancement=False):
 
     if dry_bass_score > 0.65 and not telephone_risk:
         lowbody_rear = max(lowbody_rear, 0.48)
+        bass_gain = max(bass_gain, 1.14)
         bass_quad = max(bass_quad, 0.10)
         amb_rear = min(amb_rear, 0.62)
         decorrelation = min(decorrelation, 0.34)
 
-    if rear_enhancement and vocal_risk < 0.70:
+    rear_enhancement_amount = 0.0
+    if rear_enhancement:
         plan = AUTO_ACOUSTIC_REAR_ENHANCEMENT_PLAN["safe_first_step"]
-        rear_floor_ratio = _clamp(rear_floor_ratio + plan["rear_floor_ratio_add"], 0.055, 0.165)
-        rear_master = _clamp(rear_master + plan["rear_master_add"], 0.78, 1.18)
-        side_rear = _clamp(side_rear + plan["side_rear_add"], 0.48, 1.28)
-        max_rear_makeup = _clamp(max_rear_makeup + plan["max_rear_makeup_add"], 1.6, 5.6)
+        rear_enhancement_amount = _clamp((0.90 - min(vocal_risk, 0.90)) / 0.90, 0.0, 1.0)
+        rear_floor_ratio = _clamp(rear_floor_ratio + plan["rear_floor_ratio_add"] * rear_enhancement_amount, 0.075, 0.180)
+        rear_master = _clamp(rear_master + plan["rear_master_add"] * rear_enhancement_amount, 0.84, 1.24)
+        side_rear = _clamp(side_rear + plan["side_rear_add"] * rear_enhancement_amount, 0.56, 1.36)
+        max_rear_makeup = _clamp(max_rear_makeup + plan["max_rear_makeup_add"] * rear_enhancement_amount, 2.0, 5.8)
 
     auto_preset = {
         "side_front": side_front, "side_rear": side_rear, "amb_rear": amb_rear,
         "air_rear": air_rear, "rear_master": rear_master, "decorrelation": decorrelation,
         "rear_floor_ratio": rear_floor_ratio, "max_rear_makeup": max_rear_makeup,
-        "guard_scale": guard_scale, "bass_quad": bass_quad, "lowbody_rear": lowbody_rear,
+        "guard_scale": guard_scale, "bass_gain": bass_gain, "bass_quad": bass_quad, "lowbody_rear": lowbody_rear,
         "rear_air_gain": rear_air_gain, "rear_highmid_gain": rear_highmid_gain,
     }
     auto_info = {
@@ -270,7 +284,9 @@ def generate_auto_acoustic_preset(analysis, rear_enhancement=False):
         "hall_score": hall_score,
         "narrow_score": narrow_score,
         "side_material": side_material,
-        "rear_enhancement_applied": bool(rear_enhancement and vocal_risk < 0.70),
+        "adaptive_intensity": adaptive_intensity,
+        "rear_enhancement_amount": rear_enhancement_amount,
+        "rear_enhancement_applied": bool(rear_enhancement and rear_enhancement_amount > 0.0),
         "rear_enhancement_plan": AUTO_ACOUSTIC_REAR_ENHANCEMENT_PLAN,
     }
     return auto_preset, auto_info

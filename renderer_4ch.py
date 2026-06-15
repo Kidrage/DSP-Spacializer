@@ -71,7 +71,8 @@ def render_4ch(left, right, layers, routing, sample_rate, preset_name="manual"):
         rb = soften_rear_tone(rb, sample_rate, routing.get("rear_air_gain", 0.65), routing.get("rear_highmid_gain", 0.95))
         return apply_rear_floor(np.stack([left, right, lb, rb], axis=1), routing, preset_name)
 
-    bass = layers["bass"]
+    bass_gain = float(routing.get("bass_gain", 1.0))
+    bass = layers["bass"] * bass_gain
     low_body = layers.get("low_body", np.zeros_like(bass))
     side = layers["side_width"]
     amb = layers["rear_ambience"]

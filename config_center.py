@@ -22,12 +22,14 @@ TARGET_SR = 48000
 ANALYSIS_SECONDS = 2.0
 
 # 输出模式："4ch" / "binaural" / "both"
-OUTPUT_MODE = "binaural"
-
+#OUTPUT_MODE = "binaural"
+OUTPUT_MODE = "4ch"
 # binaural 主输出是 4.0 虚拟扬声器耳机监听。
-# 下面两个默认 False：需要检查前场/后场定位时再打开。
+# CTC 输出会把 binaural 双耳目标反解到 4ch 音响阵列，适合在真实 4.0 扬声器上试听耳机空间感。
+# front/rear pair 默认 False：需要检查前场/后场定位时再打开。
+EXPORT_BINAURAL_CROSSTALK_CANCELLED_4CH = True
 EXPORT_BINAURAL_FRONT_PAIR = False
-EXPORT_BINAURAL_REAR_PAIR = True
+EXPORT_BINAURAL_REAR_PAIR = False
 
 # preset 工作模式：
 # - manual：使用 MANUAL_PRESET
@@ -48,6 +50,12 @@ BINAURAL_FRONT_AZIMUTH_DEG = 30.0
 BINAURAL_REAR_AZIMUTH_DEG = 135.0
 BINAURAL_FULL_REAR_GAIN_DB = 1.5
 
+# Crosstalk cancellation inverse-filter settings. 越低越激进、定位更强但更容易染色/爆峰；
+# 越高越稳、更像温和 speaker virtualization。
+CTC_REGULARIZATION = 0.08
+CTC_IR_LENGTH_SAMPLES = 4096
+CTC_PEAK_TARGET = 0.98
+
 # 四个虚拟扬声器到听音者的距离（米），用于 1/r 能量衰减和高频空气吸收。
 # 参考距离处 gain=1.0；更远则更轻且高频被空气吸收更明显。
 # 设为 None 则关闭该对扬声器的距离模拟。
@@ -63,8 +71,8 @@ EXPORT_DIAGNOSTICS = True
 # 在 binaural 输出之后额外卷积一个合成小房间 RIR，增强外化感/前后定位。
 # 不是真正的 per-speaker BRIR，但对耳机监听有明显帮助。
 EXPORT_BINAURAL_ROOM_RIR = True
-ROOM_RIR_RT60_SECONDS = 0.15
-ROOM_RIR_LENGTH_SECONDS = 0.30
+ROOM_RIR_RT60_SECONDS = 0.30
+ROOM_RIR_LENGTH_SECONDS = 0.50
 ROOM_RIR_LATE_START_SECONDS = 0.03
 ROOM_RIR_RANDOM_SEED = 20260611
 ROOM_RIR_KEEP_TAIL = True
