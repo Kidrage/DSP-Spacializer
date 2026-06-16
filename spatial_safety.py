@@ -17,10 +17,211 @@ problem songs before subjective listening.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 
 from dsp_utils import EPS, band_split, db, rms
 from streaming_analyzer import transient_density
+
+
+DEFAULT_QUALITY_THRESHOLDS = {
+    "global": {
+        "rear_front_db_max": -5.0,
+        "rear_vocal_leakage_score_max": 0.35,
+        "sub150_retention_score_min": 0.75,
+        "low_mid_mud_score_max": 0.45,
+        "phase_correlation_risk_max": 0.40,
+        "transient_smear_score_max": 0.35,
+        "high_harshness_score_max": 0.45,
+        "mono_fold_down_delta_db_abs_max": 1.5,
+        "spatial_excess_score_max": 0.60,
+    },
+    "presets": {
+        "auto_acoustic": {
+            "rear_front_db_max": -5.5,
+            "rear_vocal_leakage_score_max": 0.32,
+            "spatial_excess_score_max": 0.58,
+        },
+        "folk_vocal": {
+            "rear_front_db_max": -8.0,
+            "rear_vocal_leakage_score_max": 0.25,
+            "transient_smear_score_max": 0.25,
+        },
+        "epic_orchestral_depth": {
+            "rear_front_db_max": -4.5,
+            "low_mid_mud_score_max": 0.50,
+            "spatial_excess_score_max": 0.70,
+        },
+        "bass_dry_wide": {
+            "sub150_retention_score_min": 0.85,
+            "phase_correlation_risk_max": 0.35,
+        },
+        "wide_smooth": {
+            "spatial_excess_score_max": 0.55,
+        },
+    },
+}
+
+_THRESHOLD_RULES = {
+    "rear_front_db_max": ("rear_front_db", "max"),
+    "rear_vocal_leakage_score_max": ("rear_vocal_leakage_score", "max"),
+    "sub150_retention_score_min": ("sub150_retention_score", "min"),
+    "low_mid_mud_score_max": ("low_mid_mud_score", "max"),
+    "phase_correlation_risk_max": ("phase_correlation_risk", "max"),
+    "transient_smear_score_max": ("transient_smear_score", "max"),
+    "high_harshness_score_max": ("high_harshness_score", "max"),
+    "mono_fold_down_delta_db_abs_max": ("mono_fold_down_delta_db", "abs_max"),
+    "spatial_excess_score_max": ("spatial_excess_score", "max"),
+}
+
+
+def _copy_default_thresholds():
+    return json.loads(json.dumps(DEFAULT_QUALITY_THRESHOLDS))
+
+
+def load_quality_thresholds(path=None):
+    """Load quality thresholds, falling back to built-in defaults if needed."""
+    if path is None:
+        path = Path(__file__).with_name("spatial_quality_thresholds.json")
+    else:
+        path = Path(path).expanduser()
+
+    defaults = _copy_default_thresholds()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return defaults
+
+    if not isinstance(loaded, dict):
+        return defaults
+
+    merged = defaults
+    if isinstance(loaded.get("global"), dict):
+        merged["global"].update(loaded["global"])
+    if isinstance(loaded.get("presets"), dict):
+        for preset, preset_thresholds in loaded["presets"].items():
+            if isinstance(preset_thresholds, dict):
+                merged["presets"].setdefault(preset, {}).update(preset_thresholds)
+    return merged
+
+
+def get_thresholds_for_preset(thresholds, preset_name):
+    """Return global thresholds overlaid with optional preset-specific values."""
+    thresholds = thresholds or _copy_default_thresholds()
+    selected = dict(thresholds.get("global", {}))
+    if preset_name and isinstance(thresholds.get("presets"), dict):
+        selected.update(thresholds["presets"].get(preset_name, {}))
+    return selected
+
+
+def _risk_status(value, threshold, mode):
+    value = float(value)
+    threshold = float(threshold)
+    judged = abs(value) if mode == "abs_max" else value
+    if mode == "min":
+        warn_boundary = threshold * 1.08 if threshold >= 0 else threshold + abs(threshold) * 0.08
+        if judged < threshold:
+            severity = (threshold - judged) / (abs(threshold) + EPS)
+            return "fail" if severity >= 0.15 else "warn", severity
+        if judged <= warn_boundary:
+            return "warn", max(0.0, (warn_boundary - judged) / (abs(threshold) + EPS)) * 0.5
+        return "pass", 0.0
+
+    warn_boundary = threshold * 0.90 if threshold >= 0 else threshold - abs(threshold) * 0.10
+    if judged > threshold:
+        severity = (judged - threshold) / (abs(threshold) + EPS)
+        return "fail" if severity >= 0.15 else "warn", severity
+    if judged >= warn_boundary:
+        return "warn", max(0.0, (judged - warn_boundary) / (abs(threshold) + EPS)) * 0.5
+    return "pass", 0.0
+
+
+def classify_quality_risks(metrics, thresholds, preset_name=None):
+    """Classify metric values against global/preset quality thresholds."""
+    active = get_thresholds_for_preset(thresholds, preset_name)
+    risks = {}
+    weighted_scores = []
+
+    for threshold_key, (metric_key, mode) in _THRESHOLD_RULES.items():
+        if threshold_key not in active or metric_key not in metrics:
+            continue
+        value = float(metrics[metric_key])
+        threshold = float(active[threshold_key])
+        status, severity = _risk_status(value, threshold, mode)
+        if status != "pass":
+            risks[metric_key] = {
+                "value": value,
+                "threshold": threshold,
+                "status": status,
+            }
+        weighted_scores.append(1.0 if status == "fail" else (0.45 if status == "warn" else 0.0))
+        if severity > 0 and status != "pass":
+            weighted_scores[-1] = min(1.0, weighted_scores[-1] + min(severity, 1.0) * 0.25)
+
+    if any(item["status"] == "fail" for item in risks.values()):
+        overall_status = "fail"
+    elif any(item["status"] == "warn" for item in risks.values()):
+        overall_status = "warn"
+    else:
+        overall_status = "pass"
+
+    overall_risk_score = float(np.clip(np.mean(weighted_scores) if weighted_scores else 0.0, 0.0, 1.0))
+    return {
+        "overall_status": overall_status,
+        "overall_risk_score": overall_risk_score,
+        "risks": risks,
+    }
+
+
+def compare_quality_metrics(before, after):
+    """Return per-metric deltas as ``after - before``."""
+    before = before or {}
+    after = after or {}
+    keys = sorted(set(before.keys()) & set(after.keys()))
+    deltas = {}
+    for key in keys:
+        try:
+            deltas[f"{key}_delta"] = float(after[key]) - float(before[key])
+        except (TypeError, ValueError):
+            continue
+    return deltas
+
+
+def detect_over_protection(before, after):
+    """Detect if safety reduced rear spatial energy too aggressively."""
+    before = before or {}
+    after = after or {}
+    reasons = []
+
+    if "rear_front_db" in before and "rear_front_db" in after:
+        delta = float(after["rear_front_db"]) - float(before["rear_front_db"])
+        if delta < -4.0:
+            reasons.append(f"rear_front_db dropped {abs(delta):.2f} dB (> 4 dB)")
+
+    if "spatial_excess_score" in before and "spatial_excess_score" in after:
+        delta = float(after["spatial_excess_score"]) - float(before["spatial_excess_score"])
+        if delta < -0.35:
+            reasons.append(f"spatial_excess_score dropped {abs(delta):.2f} (> 0.35)")
+
+    if "rear_front_rms_ratio" in before and "rear_front_rms_ratio" in after:
+        b = float(before["rear_front_rms_ratio"])
+        a = float(after["rear_front_rms_ratio"])
+        if b > EPS and (b - a) / b > 0.45:
+            reasons.append(f"rear_front_rms_ratio dropped {(b - a) / b:.0%} (> 45%)")
+
+    if "rear_lr_correlation" in before and "rear_lr_correlation" in after:
+        b = float(before["rear_lr_correlation"])
+        a = float(after["rear_lr_correlation"])
+        if a > 0.88 and (a - b) > 0.18:
+            reasons.append("rear_lr_correlation became too high; rear diffusion may be over-compressed")
+
+    return {
+        "over_protection_warning": bool(reasons),
+        "reasons": reasons,
+    }
 
 
 def _clip01(x):

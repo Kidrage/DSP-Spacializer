@@ -27,7 +27,15 @@ from layer_router import apply_preset as route_apply_preset
 from limiter import apply_limiter
 from presets import resolve_preset, available_presets
 from renderer_4ch import render_4ch
-from spatial_safety import apply_spatial_safety, compute_quality_metrics
+from spatial_safety import (
+    apply_spatial_safety,
+    classify_quality_risks,
+    compare_quality_metrics,
+    compute_quality_metrics,
+    detect_over_protection,
+    load_quality_thresholds,
+)
+from spatial_quality_report import write_manifest_report
 from streaming_analyzer import analyze_audio
 
 
@@ -116,6 +124,9 @@ def process_file(input_path, output_dir, options):
         enabled=options["spatial_safety_enabled"],
     )
 
+    # ---- quality risk classification thresholds ----
+    thresholds = options.get("quality_thresholds") or load_quality_thresholds(options.get("quality_thresholds_path"))
+
     # ---- energy match + limiter ----
     energy_matched = match_energy((left, right), safety_4ch, sample_rate)
     final_4ch = apply_limiter(energy_matched, sample_rate=sample_rate)
@@ -126,20 +137,28 @@ def process_file(input_path, output_dir, options):
         sample_rate,
         analysis=analysis,
     )
+    quality_risk_before = classify_quality_risks(
+        safety_report["before"], thresholds, preset_name=preset_name
+    )
+    quality_risk_after = classify_quality_risks(
+        final_quality_metrics, thresholds, preset_name=preset_name
+    )
+    quality_delta = compare_quality_metrics(safety_report["before"], final_quality_metrics)
+    over_protection = detect_over_protection(safety_report["before"], safety_report["after"])
 
     # ---- export ----
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = _safe_stem(input_path)
     output_paths = {}
 
-    if options["output_mode"] in {"4ch", "both"}:
+    if (not options.get("diagnostics_only")) and options["output_mode"] in {"4ch", "both"}:
         path_4ch = output_dir / f"{stem}_{preset_name}_4ch.wav"
         export_audio(path_4ch, final_4ch, sample_rate)
         output_paths["4ch"] = str(path_4ch)
 
     room_ir = options.get("room_ir")
 
-    if options["output_mode"] in {"binaural", "both"}:
+    if (not options.get("diagnostics_only")) and options["output_mode"] in {"binaural", "both"}:
         # full 4-ch binaural (virtual speakers → headphones, procedural HRTF)
         binaural = render_4ch_binaural(
             final_4ch,
@@ -257,6 +276,12 @@ def process_file(input_path, output_dir, options):
         "routing": routing,
         "spatial_safety": safety_report,
         "quality_metrics": final_quality_metrics,
+        "quality_risk": {
+            "before": quality_risk_before,
+            "after": quality_risk_after,
+        },
+        "quality_delta": quality_delta,
+        "over_protection": over_protection,
         "output_paths": output_paths,
         "rear_to_front_rms_ratio": rear_front_ratio,
         "rear_to_front_db": float(db(rear_front_ratio)),
@@ -265,8 +290,9 @@ def process_file(input_path, output_dir, options):
 
     if options["export_diagnostics"]:
         diag_path = output_dir / f"{stem}_{preset_name}_diagnostics.json"
-        save_diagnostics(diagnostics, diag_path)
         output_paths["diagnostics"] = str(diag_path)
+        diagnostics["output_paths"] = output_paths
+        save_diagnostics(diagnostics, diag_path)
 
     # ---- console summary ----
     print(f"Processed: {input_path.name}")
@@ -323,8 +349,12 @@ def build_options(args):
         "export_binaural_room_rir": (
             getattr(args, "export_binaural_room_rir", False) or cfg.EXPORT_BINAURAL_ROOM_RIR
         ),
-        "export_diagnostics": (not args.no_diagnostics) and cfg.EXPORT_DIAGNOSTICS,
+        "export_diagnostics": ((not args.no_diagnostics) and cfg.EXPORT_DIAGNOSTICS) or args.diagnostics_only,
         "spatial_safety_enabled": not args.no_spatial_safety,
+        "quality_thresholds_path": args.quality_thresholds,
+        "quality_thresholds": load_quality_thresholds(args.quality_thresholds),
+        "diagnostics_only": args.diagnostics_only,
+        "write_quality_report": args.write_quality_report,
         "speaker_distance_front_m": cfg.SPEAKER_DISTANCE_FRONT_M,
         "speaker_distance_rear_m": cfg.SPEAKER_DISTANCE_REAR_M,
         "speaker_ref_distance_m": cfg.SPEAKER_DISTANCE_REFERENCE_M,
@@ -369,6 +399,9 @@ def main():
     parser.add_argument("--ctc-regularization", type=float, default=None)
     parser.add_argument("--ctc-ir-length-samples", type=int, default=None)
     parser.add_argument("--no-diagnostics", action="store_true")
+    parser.add_argument("--quality-thresholds", default=None, help="Quality thresholds JSON path")
+    parser.add_argument("--diagnostics-only", action="store_true", help="Analyze and write diagnostics without exporting WAV files")
+    parser.add_argument("--write-quality-report", action="store_true", help="Write a Markdown quality report for the current manifest")
     parser.add_argument(
         "--no-spatial-safety",
         action="store_true",
@@ -408,9 +441,15 @@ def main():
         manifest.append(process_file(file_path, out_dir, options))
 
     manifest_path = out_dir / "batch_manifest.json"
+    out_dir.mkdir(parents=True, exist_ok=True)
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
     print(f"\nBatch manifest: {manifest_path}")
+
+    if options.get("write_quality_report"):
+        report_path = out_dir / "quality_report.md"
+        write_manifest_report(manifest, report_path)
+        print(f"Quality report: {report_path}")
 
 
 if __name__ == "__main__":
