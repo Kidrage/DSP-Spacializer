@@ -27,6 +27,7 @@ from layer_router import apply_preset as route_apply_preset
 from limiter import apply_limiter
 from presets import resolve_preset, available_presets
 from renderer_4ch import render_4ch
+from spatial_safety import apply_spatial_safety, compute_quality_metrics
 from streaming_analyzer import analyze_audio
 
 
@@ -105,9 +106,26 @@ def process_file(input_path, output_dir, options):
     layers = extract_layers(left, right, sample_rate)
     raw_4ch = render_4ch(left, right, layers, routing, sample_rate, preset_name)
 
+    # ---- spatial safety: rear-only protection before mastering ----
+    safety_4ch, safety_report = apply_spatial_safety(
+        left,
+        right,
+        raw_4ch,
+        sample_rate,
+        analysis=analysis,
+        enabled=options["spatial_safety_enabled"],
+    )
+
     # ---- energy match + limiter ----
-    energy_matched = match_energy((left, right), raw_4ch, sample_rate)
+    energy_matched = match_energy((left, right), safety_4ch, sample_rate)
     final_4ch = apply_limiter(energy_matched, sample_rate=sample_rate)
+    final_quality_metrics = compute_quality_metrics(
+        left,
+        right,
+        final_4ch,
+        sample_rate,
+        analysis=analysis,
+    )
 
     # ---- export ----
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -237,6 +255,8 @@ def process_file(input_path, output_dir, options):
         "preset_mode_used": preset_mode_used,
         "auto_acoustic_info": auto_info,
         "routing": routing,
+        "spatial_safety": safety_report,
+        "quality_metrics": final_quality_metrics,
         "output_paths": output_paths,
         "rear_to_front_rms_ratio": rear_front_ratio,
         "rear_to_front_db": float(db(rear_front_ratio)),
@@ -254,6 +274,14 @@ def process_file(input_path, output_dir, options):
     print(
         f"  rear/front: {diagnostics['rear_to_front_rms_ratio']:.4f} "
         f"({diagnostics['rear_to_front_db']:.2f} dB)"
+    )
+    print(
+        "  safety risks: "
+        f"vocal={final_quality_metrics['rear_vocal_leakage_score']:.2f}, "
+        f"mud={final_quality_metrics['low_mid_mud_score']:.2f}, "
+        f"transient={final_quality_metrics['transient_smear_score']:.2f}, "
+        f"harsh={final_quality_metrics['high_harshness_score']:.2f}, "
+        f"monoΔ={final_quality_metrics['mono_fold_down_delta_db']:.2f} dB"
     )
     for key, path in output_paths.items():
         print(f"  {key}: {path}")
@@ -296,6 +324,7 @@ def build_options(args):
             getattr(args, "export_binaural_room_rir", False) or cfg.EXPORT_BINAURAL_ROOM_RIR
         ),
         "export_diagnostics": (not args.no_diagnostics) and cfg.EXPORT_DIAGNOSTICS,
+        "spatial_safety_enabled": not args.no_spatial_safety,
         "speaker_distance_front_m": cfg.SPEAKER_DISTANCE_FRONT_M,
         "speaker_distance_rear_m": cfg.SPEAKER_DISTANCE_REAR_M,
         "speaker_ref_distance_m": cfg.SPEAKER_DISTANCE_REFERENCE_M,
@@ -340,6 +369,11 @@ def main():
     parser.add_argument("--ctc-regularization", type=float, default=None)
     parser.add_argument("--ctc-ir-length-samples", type=int, default=None)
     parser.add_argument("--no-diagnostics", action="store_true")
+    parser.add_argument(
+        "--no-spatial-safety",
+        action="store_true",
+        help="Disable rear-channel safety guards while still reporting quality metrics.",
+    )
     args = parser.parse_args()
 
     # ---- resolve files to process ----

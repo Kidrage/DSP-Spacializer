@@ -27,7 +27,7 @@ OUTPUT_MODE = "4ch"
 # binaural 主输出是 4.0 虚拟扬声器耳机监听。
 # CTC 输出会把 binaural 双耳目标反解到 4ch 音响阵列，适合在真实 4.0 扬声器上试听耳机空间感。
 # front/rear pair 默认 False：需要检查前场/后场定位时再打开。
-EXPORT_BINAURAL_CROSSTALK_CANCELLED_4CH = True
+EXPORT_BINAURAL_CROSSTALK_CANCELLED_4CH = False
 EXPORT_BINAURAL_FRONT_PAIR = False
 EXPORT_BINAURAL_REAR_PAIR = False
 
