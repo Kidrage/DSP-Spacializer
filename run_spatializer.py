@@ -27,7 +27,7 @@ from layer_router import apply_preset as route_apply_preset
 from limiter import apply_limiter
 from presets import resolve_preset, available_presets
 from renderer_4ch import render_4ch
-from object_decoder import decode_scene_to_layout
+from object_decoder import RENDERER_MODES, decode_scene_to_layout_with_diagnostics
 from pseudo_object_scene import build_object_audio_for_scene, build_pseudo_object_scene
 from scene_diagnostics import summarize_scene
 from speaker_layout import default_quad_4p0_layout
@@ -40,6 +40,14 @@ def _safe_stem(path):
     """Return a safe filename stem without tricky characters."""
     stem = Path(path).stem
     return stem.replace(" ", "_").replace("(", "").replace(")", "")
+
+
+def _pseudo_renderer_file_tag(renderer_name):
+    return {
+        "dbap_quad_v1": "dbap",
+        "vbap_2d_v1": "vbap",
+        "hybrid_vbap_v1": "hybrid",
+    }.get(renderer_name, renderer_name.replace("_v1", ""))
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +253,7 @@ def process_file(input_path, output_dir, options):
                 output_paths["binaural_rear_pair_room_rir"] = str(path_rr)
 
     pseudo_scene = None
+    pseudo_decode_result = None
     if options["export_pseudo_scene"] or options["decode_pseudo_scene"] or options["pseudo_scene_only"]:
         object_dir = output_dir / f"{stem}_{preset_name}_objects"
         pseudo_scene = build_pseudo_object_scene(
@@ -272,13 +281,16 @@ def process_file(input_path, output_dir, options):
                 raise ValueError("V1 supports only --speaker-layout default_quad_4p0")
             layout = default_quad_4p0_layout()
             object_audio = build_object_audio_for_scene(layers)
-            pseudo_4ch = decode_scene_to_layout(
+            pseudo_decode_result = decode_scene_to_layout_with_diagnostics(
                 pseudo_scene,
                 object_audio,
                 layout,
                 sample_rate,
+                decoder_mode=options["pseudo_renderer"],
             )
-            pseudo_path = output_dir / f"{stem}_{preset_name}_pseudo_quad_4ch.wav"
+            renderer_tag = _pseudo_renderer_file_tag(options["pseudo_renderer"])
+            pseudo_path = output_dir / f"{stem}_{preset_name}_pseudo_quad_{renderer_tag}_4ch.wav"
+            pseudo_4ch = pseudo_decode_result.feeds
             export_audio(pseudo_path, pseudo_4ch, sample_rate)
             output_paths["pseudo_quad_4ch"] = str(pseudo_path)
 
@@ -314,15 +326,20 @@ def process_file(input_path, output_dir, options):
             "summary": summary,
         }
         if options["decode_pseudo_scene"]:
-            pseudo_4ch = decode_scene_to_layout(
-                pseudo_scene,
-                build_object_audio_for_scene(layers),
-                default_quad_4p0_layout(),
-                sample_rate,
-            )
+            if pseudo_decode_result is None:
+                pseudo_decode_result = decode_scene_to_layout_with_diagnostics(
+                    pseudo_scene,
+                    build_object_audio_for_scene(layers),
+                    default_quad_4p0_layout(),
+                    sample_rate,
+                    decoder_mode=options["pseudo_renderer"],
+                )
+            pseudo_4ch = pseudo_decode_result.feeds
             diagnostics["pseudo_decode"] = {
                 "layout": "quad_4p0_default",
+                "renderer": pseudo_decode_result.renderer_name,
                 "output_path": output_paths.get("pseudo_quad_4ch"),
+                "gains_by_object": pseudo_decode_result.gains_by_object,
                 "quality_metrics": compute_quality_metrics(left, right, pseudo_4ch, sample_rate, analysis=analysis),
             }
     else:
@@ -398,6 +415,7 @@ def build_options(args):
         "decode_pseudo_scene": bool(args.decode_pseudo_scene),
         "pseudo_scene_only": bool(args.pseudo_scene_only),
         "speaker_layout": args.speaker_layout,
+        "pseudo_renderer": args.pseudo_renderer,
     }
 
 
@@ -458,6 +476,12 @@ def main():
         default="default_quad_4p0",
         choices=["default_quad_4p0"],
         help="Speaker layout used by pseudo-object decoder (V1 supports default quad 4.0).",
+    )
+    parser.add_argument(
+        "--pseudo-renderer",
+        default="hybrid_vbap_v1",
+        choices=list(RENDERER_MODES),
+        help="Pseudo-object decode renderer: DBAP fallback, sharp 2D VBAP, or hybrid spread VBAP.",
     )
     parser.add_argument(
         "--no-spatial-safety",

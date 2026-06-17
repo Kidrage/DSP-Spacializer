@@ -46,8 +46,8 @@ The first pseudo-object version emits six objects:
 - `low_body_support`
 
 The scene stores coordinates, spread/depth/diffuseness, gain, constraints, and
-decoder hints.  Future decoders can target other layouts, but V1 only decodes to
-`default_quad_4p0` using a simple DBAP-like quad decoder.
+decoder hints.  Current renderers target `default_quad_4p0`; future decoders can
+reuse the same metadata for other horizontal speaker layouts.
 
 Example output when pseudo-object export is enabled:
 
@@ -56,7 +56,7 @@ spatializer_outputs_clean/
   Song_auto_acoustic_4ch.wav
   Song_auto_acoustic_binaural_4p0.wav
   Song_auto_acoustic_pseudo_scene.json
-  Song_auto_acoustic_pseudo_quad_4ch.wav
+  Song_auto_acoustic_pseudo_quad_hybrid_4ch.wav
   Song_auto_acoustic_objects/
     bass_anchor.wav
     front_core.wav
@@ -76,6 +76,47 @@ python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic
 python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic --output-mode both --export-pseudo-scene --decode-pseudo-scene
 
 python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic --pseudo-scene-only
+```
+
+## Pseudo-Object Rendering Algorithms
+
+Pseudo-object decoding is now routed through modular renderers under
+`renderers/`.  These renderers consume scene metadata and speaker layout data;
+they do not treat pseudo objects as clean stems or real isolated instruments.
+
+- `dbap_quad_v1`: the first pseudo-object decoder, kept as a fallback.  It uses
+  distance-based amplitude panning, so it is smooth and forgiving for diffuse
+  layer material.
+- `vbap_2d_v1`: horizontal 2D VBAP.  It chooses the adjacent speaker pair that
+  encloses the object azimuth and equal-power normalizes the active pair.  This
+  is sharper and more layout-driven, so it is better for point-like pseudo
+  objects.
+- `hybrid_vbap_v1`: recommended V2 mode.  It keeps `front_core` as a stereo bed,
+  uses VBAP for sharper objects such as `bass_anchor`, and uses spread VBAP for
+  diffuse/lateral beds such as `side_width`, `rear_ambience`, and `high_air`.
+
+VBAP is layout-driven decoding: it calculates speaker gains from object
+azimuths and speaker azimuths instead of hard-coding fixed 4-channel routing
+amounts.  V2 supports horizontal 2D layouts and the default quad 4.0 layout;
+future versions can extend the same renderer interface to other planar arrays.
+
+Renderer selection example:
+
+```bash
+python run_spatializer.py input_audio/test_input.wav \
+  --preset-mode auto_acoustic \
+  --output-mode 4ch \
+  --export-pseudo-scene \
+  --decode-pseudo-scene \
+  --pseudo-renderer hybrid_vbap_v1
+```
+
+Decoded file names include the renderer family, for example:
+
+```text
+*_pseudo_quad_dbap_4ch.wav
+*_pseudo_quad_vbap_4ch.wav
+*_pseudo_quad_hybrid_4ch.wav
 ```
 
 Diagnostics include `pseudo_object_scene` when scene export is enabled and
@@ -116,7 +157,8 @@ python run_spatializer.py input.wav --preset-mode auto_acoustic --output-mode bo
 - `--preset`: Manual preset name when `--preset-mode manual` is used
 - `--analysis-seconds`: Duration of analysis (default: 2.0)
 - `--export-pseudo-scene`: Export pseudo-object JSON and object layer audio
-- `--decode-pseudo-scene`: Decode pseudo-object scene to `*_pseudo_quad_4ch.wav`
+- `--decode-pseudo-scene`: Decode pseudo-object scene to renderer-tagged quad WAV
+- `--pseudo-renderer`: Select `dbap_quad_v1`, `vbap_2d_v1`, or `hybrid_vbap_v1`
 - `--pseudo-scene-only`: Export only pseudo-object scene/audio, skipping legacy file exports
 - `--no-diagnostics`: Disable JSON diagnostics export
 
@@ -165,7 +207,10 @@ streaming_stereo_spatializer/
 ├── pseudo_object_scene.py     # Pseudo-object scene builder
 ├── object_audio_export.py     # Object layer audio export helpers
 ├── speaker_layout.py          # Speaker layout descriptors
-├── object_decoder.py          # DBAP-like default quad object decoder
+├── object_decoder.py          # Pseudo-object renderer dispatch layer
+├── renderers/                 # DBAP, 2D VBAP and hybrid renderer modules
+├── scripts/check_text_integrity.py
+│                              # LF newline and line integrity check
 ├── scene_diagnostics.py       # Scene summary diagnostics
 ├── presets.py                # Spatialization presets
 ├── generate_test_audio.py    # Test tone generation
