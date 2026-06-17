@@ -1,5 +1,33 @@
 # Streaming Stereo Spatializer
 
+> **Branch notice — `Pseudo-Object` experimental branch**
+>
+> This README describes the `Pseudo-Object` branch, not the repository `main`
+> branch.  `main` should be treated as the legacy fixed 4.0 channel-renderer
+> line.  This branch keeps that legacy path working, but adds pseudo-object
+> scene metadata export and modular pseudo-object decoders for layout-driven
+> experiments.
+>
+> Pseudo objects here are **spatial-function objects** derived from DSP layers.
+> They are not clean stems, not source-separated instruments, and not claims of
+> real object audio.
+
+## How This Branch Differs From `main`
+
+| Area | `main` branch | `Pseudo-Object` branch |
+| --- | --- | --- |
+| Primary path | Stereo → DSP layers → fixed `renderer_4ch.py` | Same legacy path, plus pseudo-object scene path |
+| Metadata | Diagnostics-focused JSON | Adds `pseudo_object_spatial_v1` scene metadata |
+| Object audio | Not exported as object layers | Exports DSP layer material under `*_objects/` |
+| Decoding | Fixed 4.0 renderer | DBAP fallback, 2D VBAP, and hybrid spread-VBAP renderers |
+| CLI additions | Legacy output options | Adds `--export-pseudo-scene`, `--decode-pseudo-scene`, `--pseudo-scene-only`, `--pseudo-renderer` |
+| Intended use | Stable 4.0 / binaural upmix | Experimental pseudo-object architecture and decoder research |
+
+If you want the original stable fixed-channel behavior, use `main` or run this
+branch without pseudo-object flags.  If you want pseudo-object scene export,
+layout-driven decoding, or VBAP renderer experiments, use this `Pseudo-Object`
+branch.
+
 ## Overview
 
 This project implements a **non-AI streaming stereo spatializer** for a 4.0 speaker system. It converts stereo L/R audio into DSP spatial-function layers that are rendered to logical 4.0 output (left front, right front, left back, right back).
