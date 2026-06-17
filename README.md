@@ -1,40 +1,101 @@
-# Streaming Stereo Spatializer
+# Streaming Stereo Spatializer / DSP Spatializer 使用说明（Pseudo-Object 分支）
 
-> **Branch notice — `Pseudo-Object` experimental branch**
+> **Branch notice / 分支说明 — `Pseudo-Object` experimental branch**
 >
-> This README describes the `Pseudo-Object` branch, not the repository `main`
-> branch.  `main` should be treated as the legacy fixed 4.0 channel-renderer
-> line.  This branch keeps that legacy path working, but adds pseudo-object
-> scene metadata export and modular pseudo-object decoders for layout-driven
-> experiments.
+> **EN:** This README describes the `Pseudo-Object` branch, not the repository
+> `main` branch.  `main` is the legacy fixed 4.0 channel-renderer line.  This
+> branch keeps that legacy path working, and adds pseudo-object scene metadata,
+> pseudo-object layer audio export, and modular pseudo-object decoders for
+> layout-driven experiments.
 >
-> Pseudo objects here are **spatial-function objects** derived from DSP layers.
-> They are not clean stems, not source-separated instruments, and not claims of
-> real object audio.
+> **中文：** 本 README 描述的是 `Pseudo-Object` 分支，不是仓库的 `main` 分支。
+> `main` 应视为 legacy fixed 4.0 channel renderer 主线；本分支在保留 legacy
+> 4ch / binaural / both 输出能力的基础上，新增 pseudo-object scene metadata、
+> pseudo-object layer audio 导出，以及面向 speaker layout 的模块化 decoder。
+>
+> **Important / 重要：** Pseudo objects are **spatial-function objects** derived
+> from DSP layers.  They are not clean stems, not source-separated instruments,
+> and not claims of real object audio.
+>
+> **重要：** pseudo object 是由 DSP 空间功能层派生的 **spatial-function object**。
+> 它不是 clean stem，不是 AI 分离出来的乐器/人声 stem，也不代表真实物体音频。
 
-## How This Branch Differs From `main`
+## Main vs Pseudo-Object / `main` 与 `Pseudo-Object` 分支对照
 
-| Area | `main` branch | `Pseudo-Object` branch |
+| Area / 项目 | `main` branch / 主分支 | `Pseudo-Object` branch / 本分支 |
 | --- | --- | --- |
-| Primary path | Stereo → DSP layers → fixed `renderer_4ch.py` | Same legacy path, plus pseudo-object scene path |
-| Metadata | Diagnostics-focused JSON | Adds `pseudo_object_spatial_v1` scene metadata |
-| Object audio | Not exported as object layers | Exports DSP layer material under `*_objects/` |
-| Decoding | Fixed 4.0 renderer | DBAP fallback, 2D VBAP, and hybrid spread-VBAP renderers |
-| CLI additions | Legacy output options | Adds `--export-pseudo-scene`, `--decode-pseudo-scene`, `--pseudo-scene-only`, `--pseudo-renderer` |
-| Intended use | Stable 4.0 / binaural upmix | Experimental pseudo-object architecture and decoder research |
+| Primary path / 主链路 | Stereo → DSP layers → fixed `renderer_4ch.py` | Same legacy path, plus pseudo-object scene path / 保留 legacy 链路，并新增 pseudo-object scene 链路 |
+| Metadata / 元数据 | Diagnostics-focused JSON / 以 diagnostics JSON 为主 | Adds `pseudo_object_spatial_v1` scene metadata / 新增 pseudo-object scene metadata |
+| Object audio / 对象音频 | Not exported as object layers / 不导出 object layer audio | Exports DSP layer material under `*_objects/` / 导出 DSP layer material，不是 clean stem |
+| Decoding / 解码 | Fixed 4.0 renderer / 固定四声道渲染 | DBAP fallback, 2D VBAP, hybrid spread-VBAP / 支持 DBAP、2D VBAP、hybrid renderer |
+| CLI additions / CLI 增量 | Legacy output options / legacy 输出参数 | Adds `--export-pseudo-scene`, `--decode-pseudo-scene`, `--pseudo-scene-only`, `--pseudo-renderer` |
+| Intended use / 用途 | Stable 4.0 / binaural upmix / 稳定固定通道 upmix | Experimental pseudo-object architecture and decoder research / pseudo-object 架构与 decoder 实验 |
 
-If you want the original stable fixed-channel behavior, use `main` or run this
-branch without pseudo-object flags.  If you want pseudo-object scene export,
-layout-driven decoding, or VBAP renderer experiments, use this `Pseudo-Object`
-branch.
+**EN:** If you want the original stable fixed-channel behavior, use `main` or
+run this branch without pseudo-object flags.  If you want pseudo-object scene
+export, layout-driven decoding, or VBAP renderer experiments, use this
+`Pseudo-Object` branch.
 
-## Overview
+**中文：** 如果你只需要原来的稳定 fixed-channel 4.0 / binaural 行为，请使用 `main`，
+或者在本分支不加 pseudo-object 相关参数运行。若需要导出 pseudo-object scene、
+尝试 layout-driven decoder 或 VBAP / hybrid renderer，请使用 `Pseudo-Object` 分支。
+
+## 中文快速说明 / Chinese Quick Reference
+
+本分支不是把 stereo 分成真实乐器对象，而是把现有 DSP layer（例如 `bass`、
+`front_core`、`side_width`、`rear_ambience`、`high_air`、`low_body_support`）描述
+成可解释的 spatial-function pseudo objects。scene JSON 可以交给不同 decoder 使用；
+当前默认支持 `default_quad_4p0`，并提供三种 pseudo renderer：
+
+- `dbap_quad_v1`：距离型 DBAP-like fallback，声音分布较平滑。
+- `vbap_2d_v1`：水平 2D VBAP，定位更 sharp，适合 point-like pseudo objects。
+- `hybrid_vbap_v1`：推荐模式，根据 object type / spread / diffuseness 选择 VBAP、
+  spread VBAP 或 stereo bed 特判。
+
+常用命令：
+
+```bash
+python run_spatializer.py input_audio/test_input.wav \
+  --preset-mode auto_acoustic \
+  --output-mode 4ch \
+  --export-pseudo-scene
+
+python run_spatializer.py input_audio/test_input.wav \
+  --preset-mode auto_acoustic \
+  --output-mode both \
+  --export-pseudo-scene \
+  --decode-pseudo-scene \
+  --pseudo-renderer hybrid_vbap_v1
+
+python run_spatializer.py input_audio/test_input.wav \
+  --preset-mode auto_acoustic \
+  --pseudo-scene-only
+```
+
+典型 pseudo-object 输出：
+
+```text
+outputs/<song>_auto_acoustic_pseudo_scene.json
+outputs/<song>_auto_acoustic_objects/bass_anchor.wav
+outputs/<song>_auto_acoustic_objects/front_core.wav
+outputs/<song>_auto_acoustic_objects/side_width.wav
+outputs/<song>_auto_acoustic_objects/rear_ambience.wav
+outputs/<song>_auto_acoustic_objects/high_air.wav
+outputs/<song>_auto_acoustic_objects/low_body_support.wav
+outputs/<song>_auto_acoustic_pseudo_quad_hybrid_4ch.wav
+```
+
+## Overview / 概览
+
+本项目是一个非 AI、规则/信号处理驱动的 stereo → 4.0 / pseudo-object spatializer。
+legacy 路径仍然输出固定 `[LF, RF, LB, RB]` 四声道；`Pseudo-Object` 分支额外导出
+scene metadata 和 object layer material，以便后续使用不同 speaker layout decoder。
 
 This project implements a **non-AI streaming stereo spatializer** for a 4.0 speaker system. It converts stereo L/R audio into DSP spatial-function layers that are rendered to logical 4.0 output (left front, right front, left back, right back).
 
 This is **not** AI-based source separation. The spatial layers are not clean stems but rather spatial-function buses used for rendering.
 
-## Key Features
+## Key Features / 主要特性
 
 - Converts stereo L/R audio to 4.0 spatial output
 - DSP spatial-function layers:
@@ -51,7 +112,7 @@ This is **not** AI-based source separation. The spatial layers are not clean ste
 - Optional pseudo-object scene export and default quad 4.0 decoder
 
 
-## Batch Spatial Diagnostics Sync
+## Batch Spatial Diagnostics Sync / 批量空间诊断同步
 
 This `Pseudo-Object` branch also includes the Gitea-side batch diagnostics work merged from `feat: add batch spatial diagnostics`.  These tools are compatible with the legacy 4.0 path and with pseudo-object experiments:
 
@@ -69,7 +130,7 @@ Related files:
 
 These diagnostics describe spatial safety and render quality; they do not change the definition of pseudo objects.  Pseudo objects remain DSP-derived spatial-function objects, not clean source-separated stems.
 
-## Pseudo-Object Upmix Mode
+## Pseudo-Object Upmix Mode / Pseudo-Object Upmix 模式
 
 DSP-Spacializer now has two compatible rendering paths:
 
@@ -125,7 +186,7 @@ python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic
 python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic --pseudo-scene-only
 ```
 
-## Pseudo-Object Rendering Algorithms
+## Pseudo-Object Rendering Algorithms / 渲染算法
 
 Pseudo-object decoding is now routed through modular renderers under
 `renderers/`.  These renderers consume scene metadata and speaker layout data;
