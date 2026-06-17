@@ -43,6 +43,16 @@ def _mono_fold_down(four_ch):
     return np.mean(four_ch, axis=1).astype(np.float32)
 
 
+def _mono_fold_down_front_norm(four_ch):
+    four_ch = np.asarray(four_ch, dtype=np.float32)
+    return (0.5 * np.sum(four_ch, axis=1)).astype(np.float32)
+
+
+def _mono_front_only(four_ch):
+    four_ch = np.asarray(four_ch, dtype=np.float32)
+    return (0.5 * (four_ch[:, 0] + four_ch[:, 1])).astype(np.float32)
+
+
 def _attenuate_rear_band(four_ch, sample_rate, band_name, gain):
     """Apply a rear-only band attenuation while preserving other bands."""
     gain = float(np.clip(gain, 0.0, 1.0))
@@ -82,6 +92,8 @@ def compute_quality_metrics(left, right, four_ch, sample_rate, analysis=None):
     input_side = 0.70710678 * (left - right)
     input_mono = 0.5 * (left + right)
     output_mono = _mono_fold_down(four_ch)
+    output_mono_front_norm = _mono_fold_down_front_norm(four_ch)
+    output_front_only = _mono_front_only(four_ch)
 
     front_rms = rms(four_ch[:, :2])
     rear_rms = rms(four_ch[:, 2:])
@@ -135,6 +147,8 @@ def compute_quality_metrics(left, right, four_ch, sample_rate, analysis=None):
     lr_corr_rear = _safe_corr(four_ch[:, 2], four_ch[:, 3])
     mono_corr = _safe_corr(input_mono, output_mono)
     mono_delta_db = db(rms(output_mono) / (rms(input_mono) + EPS))
+    mono_delta_db_front_norm = db(rms(output_mono_front_norm) / (rms(input_mono) + EPS))
+    mono_front_only_delta_db = db(rms(output_front_only) / (rms(input_mono) + EPS))
     phase_correlation_risk = _clip01(
         0.45 * np.clip((-lr_corr_rear - 0.10) / 0.80, 0.0, 1.0)
         + 0.35 * np.clip((abs(mono_delta_db) - 1.5) / 5.0, 0.0, 1.0)
@@ -161,6 +175,13 @@ def compute_quality_metrics(left, right, four_ch, sample_rate, analysis=None):
         "transient_smear_score": float(transient_smear_score),
         "high_harshness_score": float(high_harshness_score),
         "mono_fold_down_delta_db": float(mono_delta_db),
+        "mono_fold_down_delta_db_avg4_legacy": float(mono_delta_db),
+        "mono_fold_down_delta_db_front_norm": float(mono_delta_db_front_norm),
+        "mono_front_only_delta_db": float(mono_front_only_delta_db),
+        "mono_fold_down_note": (
+            "mono_fold_down_delta_db is legacy avg4=(LF+RF+LB+RB)/4. "
+            "Use front_norm or front_only fields when comparing against stereo mono."
+        ),
         "mono_fold_down_correlation": float(mono_corr),
         "front_lr_correlation": float(lr_corr_front),
         "rear_lr_correlation": float(lr_corr_rear),

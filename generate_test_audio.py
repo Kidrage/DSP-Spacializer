@@ -1,5 +1,6 @@
 import numpy as np
 import soundfile as sf
+from pathlib import Path
 
 # Generate a 2-second stereo test tone
 sample_rate = 44100
@@ -14,6 +15,8 @@ right = np.sin(2 * np.pi * 523 * t)  # C5 note
 audio = np.column_stack((left, right))
 
 # Export to WAV file
-sf.write('test_input.wav', audio, sample_rate, subtype='FLOAT')
+out_dir = Path("input_audio")
+out_dir.mkdir(parents=True, exist_ok=True)
+sf.write(str(out_dir / 'test_input.wav'), audio, sample_rate, subtype='FLOAT')
 
-print("Generated test_input.wav in current directory")
+print("Generated input_audio/test_input.wav")

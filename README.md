@@ -2,15 +2,16 @@
 
 ## Overview
 
-This project implements a **non-AI streaming stereo spatializer** for a 4.0 speaker system. It converts stereo L/R audio into five spatial layers that are rendered to logical 4.0 output (left front, right front, left back, right back).
+This project implements a **non-AI streaming stereo spatializer** for a 4.0 speaker system. It converts stereo L/R audio into DSP spatial-function layers that are rendered to logical 4.0 output (left front, right front, left back, right back).
 
 This is **not** AI-based source separation. The spatial layers are not clean stems but rather spatial-function buses used for rendering.
 
 ## Key Features
 
 - Converts stereo L/R audio to 4.0 spatial output
-- Five spatial layers:
+- DSP spatial-function layers:
   - Bass Layer (low-frequency body)
+  - Low Body Support (warmth/body support)
   - Front Core (center-correlated content)
   - Side Width (stereo difference)
   - Rear Ambience (diffuse, low-coherence)
@@ -19,6 +20,72 @@ This is **not** AI-based source separation. The spatial layers are not clean ste
 - Energy matching to maintain consistent loudness
 - Limiter to prevent clipping
 - Diagnostic output for analysis
+- Optional pseudo-object scene export and default quad 4.0 decoder
+
+## Pseudo-Object Upmix Mode
+
+DSP-Spacializer now has two compatible rendering paths:
+
+1. **Legacy fixed 4.0 mode** — the original deterministic channel renderer in
+   `renderer_4ch.py`.  It directly maps DSP spatial-function layers to
+   `[LF, RF, LB, RB]` and remains the default behavior for `4ch`, `binaural`,
+   and `both` output modes.
+2. **Pseudo-object scene mode** — an additional metadata path that turns the
+   same DSP layers into a `pseudo_object_spatial_v1` scene.  These pseudo
+   objects are **spatial-function objects**, not real instrument objects and not
+   source-separated clean stems.  Object audio files are layer material for a
+   decoder, not final speaker feeds.
+
+The first pseudo-object version emits six objects:
+
+- `bass_anchor`
+- `front_core`
+- `side_width`
+- `rear_ambience`
+- `high_air`
+- `low_body_support`
+
+The scene stores coordinates, spread/depth/diffuseness, gain, constraints, and
+decoder hints.  Future decoders can target other layouts, but V1 only decodes to
+`default_quad_4p0` using a simple DBAP-like quad decoder.
+
+Example output when pseudo-object export is enabled:
+
+```text
+spatializer_outputs_clean/
+  Song_auto_acoustic_4ch.wav
+  Song_auto_acoustic_binaural_4p0.wav
+  Song_auto_acoustic_pseudo_scene.json
+  Song_auto_acoustic_pseudo_quad_4ch.wav
+  Song_auto_acoustic_objects/
+    bass_anchor.wav
+    front_core.wav
+    side_width.wav
+    rear_ambience.wav
+    high_air.wav
+    low_body_support.wav
+  Song_auto_acoustic_diagnostics.json
+  batch_manifest.json
+```
+
+CLI examples:
+
+```bash
+python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic --output-mode 4ch --export-pseudo-scene
+
+python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic --output-mode both --export-pseudo-scene --decode-pseudo-scene
+
+python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic --pseudo-scene-only
+```
+
+Diagnostics include `pseudo_object_scene` when scene export is enabled and
+`pseudo_decode` when the scene is decoded.  The legacy field
+`mono_fold_down_delta_db` is preserved, but it means the legacy average-4 fold
+down `(LF+RF+LB+RB)/4`.  New fields clarify the basis:
+
+- `mono_fold_down_delta_db_avg4_legacy`
+- `mono_fold_down_delta_db_front_norm`
+- `mono_front_only_delta_db`
 
 ## Installation
 
@@ -32,23 +99,26 @@ pip install numpy librosa soundfile scipy
 
 To run with the generated test audio:
 ```bash
-cd streaming_stereo_spatializer
-python generate_test_audio.py  # Creates test_input.wav
-python run_spatializer.py test_input.wav --out output_4ch.wav --preset natural --analysis-seconds 2.0 --export-preview --export-diagnostics
+python generate_test_audio.py  # Creates input_audio/test_input.wav
+python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic --output-mode 4ch
 ```
 
 For your own audio files:
 ```bash
-python run_spatializer.py input.wav --out output_4ch.wav --preset natural --analysis-seconds 2.0 --export-preview --export-diagnostics
+python run_spatializer.py input.wav --preset-mode auto_acoustic --output-mode both
 ```
 
 ### Arguments
 - `input.wav`: Path to input stereo WAV file
-- `--out`: Path to output 4-channel WAV file
-- `--preset`: Spatialization preset (auto/natural/wide/vocal_safe/live/club/bypass/ms_baseline)
+- `--out-dir`: Output directory
+- `--preset-mode`: `manual`, `auto_select`, or `auto_acoustic`
+- `--output-mode`: `4ch`, `binaural`, or `both`
+- `--preset`: Manual preset name when `--preset-mode manual` is used
 - `--analysis-seconds`: Duration of analysis (default: 2.0)
-- `--export-preview`: Export stereo preview downmix
-- `--export-diagnostics`: Export JSON diagnostics file
+- `--export-pseudo-scene`: Export pseudo-object JSON and object layer audio
+- `--decode-pseudo-scene`: Decode pseudo-object scene to `*_pseudo_quad_4ch.wav`
+- `--pseudo-scene-only`: Export only pseudo-object scene/audio, skipping legacy file exports
+- `--no-diagnostics`: Disable JSON diagnostics export
 
 ## Presets
 
@@ -91,8 +161,15 @@ streaming_stereo_spatializer/
 ├── energy_manager.py         # Loudness matching
 ├── limiter.py                # Clipping prevention
 ├── diagnostics.py            # Diagnostic output
+├── pseudo_object_schema.py    # Pseudo-object metadata schema validation
+├── pseudo_object_scene.py     # Pseudo-object scene builder
+├── object_audio_export.py     # Object layer audio export helpers
+├── speaker_layout.py          # Speaker layout descriptors
+├── object_decoder.py          # DBAP-like default quad object decoder
+├── scene_diagnostics.py       # Scene summary diagnostics
 ├── presets.py                # Spatialization presets
 ├── generate_test_audio.py    # Test tone generation
+├── tests/                    # Pytest regression tests
 ├── README.md                 # This file
 ```
 

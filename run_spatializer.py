@@ -27,6 +27,10 @@ from layer_router import apply_preset as route_apply_preset
 from limiter import apply_limiter
 from presets import resolve_preset, available_presets
 from renderer_4ch import render_4ch
+from object_decoder import decode_scene_to_layout
+from pseudo_object_scene import build_object_audio_for_scene, build_pseudo_object_scene
+from scene_diagnostics import summarize_scene
+from speaker_layout import default_quad_4p0_layout
 from spatial_safety import apply_spatial_safety, compute_quality_metrics
 from streaming_analyzer import analyze_audio
 
@@ -132,14 +136,14 @@ def process_file(input_path, output_dir, options):
     stem = _safe_stem(input_path)
     output_paths = {}
 
-    if options["output_mode"] in {"4ch", "both"}:
+    if (not options["pseudo_scene_only"]) and options["output_mode"] in {"4ch", "both"}:
         path_4ch = output_dir / f"{stem}_{preset_name}_4ch.wav"
         export_audio(path_4ch, final_4ch, sample_rate)
         output_paths["4ch"] = str(path_4ch)
 
     room_ir = options.get("room_ir")
 
-    if options["output_mode"] in {"binaural", "both"}:
+    if (not options["pseudo_scene_only"]) and options["output_mode"] in {"binaural", "both"}:
         # full 4-ch binaural (virtual speakers → headphones, procedural HRTF)
         binaural = render_4ch_binaural(
             final_4ch,
@@ -240,6 +244,44 @@ def process_file(input_path, output_dir, options):
                 export_audio(path_rr, rear_room, sample_rate)
                 output_paths["binaural_rear_pair_room_rir"] = str(path_rr)
 
+    pseudo_scene = None
+    if options["export_pseudo_scene"] or options["decode_pseudo_scene"] or options["pseudo_scene_only"]:
+        object_dir = output_dir / f"{stem}_{preset_name}_objects"
+        pseudo_scene = build_pseudo_object_scene(
+            input_file=str(input_path),
+            left=left,
+            right=right,
+            layers=layers,
+            analysis=analysis,
+            routing=routing,
+            preset_name=preset_name,
+            preset_mode_used=preset_mode_used,
+            sample_rate=sample_rate,
+            duration_seconds=duration,
+            object_audio_dir=object_dir,
+            export_object_audio=True,
+        )
+        scene_path = output_dir / f"{stem}_{preset_name}_pseudo_scene.json"
+        with open(scene_path, "w", encoding="utf-8") as f:
+            json.dump(pseudo_scene, f, indent=2, ensure_ascii=False)
+        output_paths["pseudo_scene"] = str(scene_path)
+        output_paths["pseudo_object_audio_dir"] = str(object_dir)
+
+        if options["decode_pseudo_scene"]:
+            if options["speaker_layout"] != "default_quad_4p0":
+                raise ValueError("V1 supports only --speaker-layout default_quad_4p0")
+            layout = default_quad_4p0_layout()
+            object_audio = build_object_audio_for_scene(layers)
+            pseudo_4ch = decode_scene_to_layout(
+                pseudo_scene,
+                object_audio,
+                layout,
+                sample_rate,
+            )
+            pseudo_path = output_dir / f"{stem}_{preset_name}_pseudo_quad_4ch.wav"
+            export_audio(pseudo_path, pseudo_4ch, sample_rate)
+            output_paths["pseudo_quad_4ch"] = str(pseudo_path)
+
     # ---- diagnostics ----
     rear_front_ratio = float(rms(final_4ch[:, 2:]) / (rms(final_4ch[:, :2]) + 1e-9))
     diagnostics = generate_diagnostics(
@@ -262,6 +304,29 @@ def process_file(input_path, output_dir, options):
         "rear_to_front_db": float(db(rear_front_ratio)),
         "peak": float(peak(final_4ch)),
     })
+    if pseudo_scene is not None:
+        summary = summarize_scene(pseudo_scene)
+        diagnostics["pseudo_object_scene"] = {
+            "enabled": True,
+            "scene_path": output_paths.get("pseudo_scene"),
+            "object_count": summary["object_count"],
+            "objects": [obj["id"] for obj in pseudo_scene.get("objects", [])],
+            "summary": summary,
+        }
+        if options["decode_pseudo_scene"]:
+            pseudo_4ch = decode_scene_to_layout(
+                pseudo_scene,
+                build_object_audio_for_scene(layers),
+                default_quad_4p0_layout(),
+                sample_rate,
+            )
+            diagnostics["pseudo_decode"] = {
+                "layout": "quad_4p0_default",
+                "output_path": output_paths.get("pseudo_quad_4ch"),
+                "quality_metrics": compute_quality_metrics(left, right, pseudo_4ch, sample_rate, analysis=analysis),
+            }
+    else:
+        diagnostics["pseudo_object_scene"] = {"enabled": False}
 
     if options["export_diagnostics"]:
         diag_path = output_dir / f"{stem}_{preset_name}_diagnostics.json"
@@ -329,6 +394,10 @@ def build_options(args):
         "speaker_distance_rear_m": cfg.SPEAKER_DISTANCE_REAR_M,
         "speaker_ref_distance_m": cfg.SPEAKER_DISTANCE_REFERENCE_M,
         "air_absorption_db_per_m": cfg.SPEAKER_AIR_ABSORPTION_DB_PER_M,
+        "export_pseudo_scene": bool(args.export_pseudo_scene),
+        "decode_pseudo_scene": bool(args.decode_pseudo_scene),
+        "pseudo_scene_only": bool(args.pseudo_scene_only),
+        "speaker_layout": args.speaker_layout,
     }
 
 
@@ -369,6 +438,27 @@ def main():
     parser.add_argument("--ctc-regularization", type=float, default=None)
     parser.add_argument("--ctc-ir-length-samples", type=int, default=None)
     parser.add_argument("--no-diagnostics", action="store_true")
+    parser.add_argument(
+        "--export-pseudo-scene",
+        action="store_true",
+        help="Export pseudo-object scene JSON and per-object layer audio.",
+    )
+    parser.add_argument(
+        "--decode-pseudo-scene",
+        action="store_true",
+        help="Decode exported pseudo-object scene to default quad 4.0 for A/B with legacy renderer.",
+    )
+    parser.add_argument(
+        "--pseudo-scene-only",
+        action="store_true",
+        help="Only export pseudo-object scene/audio; skip legacy 4ch/binaural exports.",
+    )
+    parser.add_argument(
+        "--speaker-layout",
+        default="default_quad_4p0",
+        choices=["default_quad_4p0"],
+        help="Speaker layout used by pseudo-object decoder (V1 supports default quad 4.0).",
+    )
     parser.add_argument(
         "--no-spatial-safety",
         action="store_true",
