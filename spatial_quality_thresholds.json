@@ -1,0 +1,37 @@
+{
+  "global": {
+    "rear_front_db_max": -5.0,
+    "rear_vocal_leakage_score_max": 0.35,
+    "sub150_retention_score_min": 0.75,
+    "low_mid_mud_score_max": 0.45,
+    "phase_correlation_risk_max": 0.40,
+    "transient_smear_score_max": 0.35,
+    "high_harshness_score_max": 0.45,
+    "mono_fold_down_delta_db_abs_max": 1.5,
+    "spatial_excess_score_max": 0.60
+  },
+  "presets": {
+    "auto_acoustic": {
+      "rear_front_db_max": -5.5,
+      "rear_vocal_leakage_score_max": 0.32,
+      "spatial_excess_score_max": 0.58
+    },
+    "folk_vocal": {
+      "rear_front_db_max": -8.0,
+      "rear_vocal_leakage_score_max": 0.25,
+      "transient_smear_score_max": 0.25
+    },
+    "epic_orchestral_depth": {
+      "rear_front_db_max": -4.5,
+      "low_mid_mud_score_max": 0.50,
+      "spatial_excess_score_max": 0.70
+    },
+    "bass_dry_wide": {
+      "sub150_retention_score_min": 0.85,
+      "phase_correlation_risk_max": 0.35
+    },
+    "wide_smooth": {
+      "spatial_excess_score_max": 0.55
+    }
+  }
+}

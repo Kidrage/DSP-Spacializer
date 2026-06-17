@@ -50,6 +50,25 @@ This is **not** AI-based source separation. The spatial layers are not clean ste
 - Diagnostic output for analysis
 - Optional pseudo-object scene export and default quad 4.0 decoder
 
+
+## Batch Spatial Diagnostics Sync
+
+This `Pseudo-Object` branch also includes the Gitea-side batch diagnostics work merged from `feat: add batch spatial diagnostics`.  These tools are compatible with the legacy 4.0 path and with pseudo-object experiments:
+
+```bash
+python batch_spatial_diagnostics.py --input-dir input_audio --output-dir outputs/batch_eval --preset-mode auto_acoustic
+python run_spatializer.py my_song.wav --out-dir outputs --diagnostics-only
+python run_spatializer.py my_song.wav --out-dir outputs --write-quality-report
+```
+
+Related files:
+
+- `batch_spatial_diagnostics.py`: batch metrics/summary/report generation.
+- `spatial_quality_report.py`: Markdown quality report writer.
+- `spatial_quality_thresholds.json`: global and preset-specific quality thresholds.
+
+These diagnostics describe spatial safety and render quality; they do not change the definition of pseudo objects.  Pseudo objects remain DSP-derived spatial-function objects, not clean source-separated stems.
+
 ## Pseudo-Object Upmix Mode
 
 DSP-Spacializer now has two compatible rendering paths:
@@ -231,6 +250,11 @@ streaming_stereo_spatializer/
 ├── energy_manager.py         # Loudness matching
 ├── limiter.py                # Clipping prevention
 ├── diagnostics.py            # Diagnostic output
+├── batch_spatial_diagnostics.py
+│                              # Batch spatial metrics and summaries
+├── spatial_quality_report.py   # Markdown quality report writer
+├── spatial_quality_thresholds.json
+│                              # Quality risk thresholds
 ├── pseudo_object_schema.py    # Pseudo-object metadata schema validation
 ├── pseudo_object_scene.py     # Pseudo-object scene builder
 ├── object_audio_export.py     # Object layer audio export helpers
