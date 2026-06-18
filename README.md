@@ -2,7 +2,10 @@
 
 > **Branch notice / 分支说明 — `Pseudo-Object` experimental branch / 实验分支**
 >
-> **EN:** This README describes the `Pseudo-Object` branch, not the repository `main` branch. The `main` branch should be treated as the legacy fixed 4.0 channel-renderer line. This branch keeps the legacy path working, while adding pseudo-object scene metadata, pseudo-object layer audio export, and modular pseudo-object decoders for layout-driven experiments.
+> **EN:** This README describes the `Pseudo-Object` branch, not repository `main`.
+> `main` is the legacy fixed 4.0 channel-renderer line.
+> This branch keeps the legacy path working while adding pseudo-object scene metadata,
+> pseudo-object layer audio export, and modular layout-driven decoders.
 >
 > **中文：** 本 README 描述的是 `Pseudo-Object` 分支，不是仓库的 `main` 分支。`main` 应视为 legacy fixed 4.0 channel renderer 主线。本分支在保留 legacy 路径可用的基础上，新增 pseudo-object scene metadata、pseudo-object layer audio 导出，以及面向 speaker layout 实验的模块化 pseudo-object decoder。
 >
@@ -27,7 +30,12 @@
 
 ## Quick Reference / 快速说明
 
-**EN:** This branch does not split stereo audio into real instrument objects. Instead, it describes the existing DSP layers, such as `bass`, `front_core`, `side_width`, `rear_ambience`, `high_air`, and `low_body_support`, as interpretable spatial-function pseudo objects. The scene JSON can be consumed by different decoders. The current default layout is `default_quad_4p0`, and three pseudo renderers are provided.
+**EN:** This branch does not split stereo audio into real instrument objects.
+Instead, it describes the existing DSP layers (`bass`, `front_core`, `side_width`,
+`rear_ambience`, `high_air`, and `low_body_support`) as interpretable
+spatial-function pseudo objects. The scene JSON can be consumed by different
+decoders. The current default layout is `default_quad_4p0`, and three pseudo
+renderers are provided.
 
 **中文：** 本分支不是把 stereo 分成真实乐器对象，而是把现有 DSP layer，例如 `bass`、`front_core`、`side_width`、`rear_ambience`、`high_air`、`low_body_support`，描述成可解释的 spatial-function pseudo objects。scene JSON 可以交给不同 decoder 使用；当前默认支持 `default_quad_4p0`，并提供三种 pseudo renderer。
 
@@ -74,9 +82,158 @@ outputs/<song>_auto_acoustic_objects/low_body_support.wav
 outputs/<song>_auto_acoustic_pseudo_quad_hybrid_4ch.wav
 ```
 
+## How to Use This Branch / 这个分支怎么使用
+
+**EN:** Use this branch in one of three ways, depending on whether you want the stable legacy 4.0 render, pseudo-object metadata, or renderer A/B experiments.
+
+**中文：** 这个分支可以按三种目标来用：只要稳定 4.0、导出 pseudo-object 元数据，或对不同 pseudo renderer 做 A/B 对比。
+
+### 1. Prepare the environment / 准备环境
+
+```bash
+git clone https://github.com/Kidrage/DSP-Spacializer.git
+cd DSP-Spacializer
+git checkout Pseudo-Object
+python -m pip install numpy librosa soundfile scipy
+```
+
+If you are using this local checkout directly / 如果直接使用当前本地仓库：
+
+```bash
+cd /Users/saintpeter/Desktop/Coding/spatializer_outputs/DSP空间化codec
+python -m pip install numpy librosa soundfile scipy
+```
+
+Supported input extensions are `.wav`, `.flac`, `.aiff`, `.aif`, `.ogg`, `.mp3`, and `.m4a`. Internally the loader converts mono to stereo, truncates files with more than two channels to L/R, optionally resamples to `--target-sr`, and peak-normalizes input to `0.99`.
+
+支持的输入格式包括 `.wav`、`.flac`、`.aiff`、`.aif`、`.ogg`、`.mp3`、`.m4a`。读取时会把 mono 复制成 stereo，多声道文件只取前两个声道；如指定 `--target-sr` 会重采样，并将输入峰值规范化到 `0.99`。
+
+### 2. Choose the run mode / 选择运行模式
+
+| Goal / 目标 | Command / 命令 | Main output / 主要输出 |
+| --- | --- | --- |
+| Legacy fixed 4.0 / 传统固定四声道 | `python run_spatializer.py input.wav --preset-mode auto_acoustic --output-mode 4ch` | `outputs/input_<preset>_4ch.wav` |
+| Binaural headphone preview / 耳机双耳预览 | `python run_spatializer.py input.wav --preset-mode auto_acoustic --output-mode binaural` | `outputs/input_<preset>_binaural_4p0.wav` |
+| 4.0 + binaural / 四声道和双耳都导出 | `python run_spatializer.py input.wav --preset-mode auto_acoustic --output-mode both` | 4ch WAV + binaural WAV |
+| Export pseudo-object scene / 只增加 pseudo-object scene 导出 | `python run_spatializer.py input.wav --preset-mode auto_acoustic --output-mode 4ch --export-pseudo-scene` | legacy 4ch + scene JSON + object layer WAVs |
+| Decode pseudo-object scene / 解码 pseudo-object scene | `python run_spatializer.py input.wav --preset-mode auto_acoustic --output-mode both --export-pseudo-scene --decode-pseudo-scene --pseudo-renderer hybrid_vbap_v1` | legacy outputs + `*_pseudo_quad_hybrid_4ch.wav` |
+| Metadata/object-layer only / 只导出元数据和对象层 | `python run_spatializer.py input.wav --preset-mode auto_acoustic --pseudo-scene-only` | scene JSON + `*_objects/` |
+| Batch folder mode / 批量处理文件夹 | put files in `input_audio/`, then run `python run_spatializer.py` | one output set per input file |
+| Diagnostics only / 只写诊断 | `python run_spatializer.py input.wav --diagnostics-only` | diagnostics JSON, no WAV render |
+| Batch quality report / 批量质量报告 | `python batch_spatial_diagnostics.py --input-dir input_audio --output-dir outputs/batch_eval --preset-mode auto_acoustic` | manifest + summary/report files |
+
+Recommended first command / 推荐第一条命令：
+
+```bash
+python generate_test_audio.py
+python run_spatializer.py input_audio/test_input.wav \
+  --preset-mode auto_acoustic \
+  --output-mode both \
+  --export-pseudo-scene \
+  --decode-pseudo-scene \
+  --pseudo-renderer hybrid_vbap_v1
+```
+
+### 3. Understand the output files / 看懂输出文件
+
+```text
+outputs/<song>_<preset>_4ch.wav                         # legacy [LF, RF, LB, RB]
+outputs/<song>_<preset>_binaural_4p0.wav                # headphone preview of legacy 4.0
+outputs/<song>_<preset>_pseudo_scene.json               # pseudo_object_spatial_v1 metadata
+outputs/<song>_<preset>_objects/*.wav                   # DSP layer material, not clean stems
+outputs/<song>_<preset>_pseudo_quad_hybrid_4ch.wav      # pseudo-object decoded 4.0
+outputs/<song>_<preset>_diagnostics.json                # analysis/routing/quality metrics
+```
+
+**Important / 重要：** `*_objects/*.wav` are pseudo-object layer materials derived from DSP buses. They are suitable for decoder experiments, but they are **not** isolated vocals, drums, instruments, or Dolby Atmos objects.
+
+**重要：** `*_objects/*.wav` 是从 DSP bus 派生出的 pseudo-object layer material，适合做 decoder 实验；它们不是单独的人声、鼓、乐器，也不是 Dolby Atmos object。
+
+### Project Mind Map / 项目思维导图
+
+```mermaid
+mindmap
+  root((DSP-Spacializer\nPseudo-Object branch))
+    Inputs / 输入
+      File formats
+        WAV/FLAC/AIFF/OGG/MP3/M4A
+      Loader
+        mono to stereo
+        first two channels only
+        optional resample
+        peak normalize
+    Analysis / 分析
+      Mid/Side
+      band split
+        bass <120Hz
+        low_mid 120-500Hz
+        mid 500-2000Hz
+        high_mid 2-6kHz
+        air >6kHz
+      features
+        stereo_width
+        center_dominance
+        band_coherence
+        high_diffuse_ratio
+        transient_density
+    Presets / 预设
+      manual
+      auto_select
+      auto_acoustic
+      routing guards
+        center_guard
+        transient_guard
+        width_boost
+        diffuse_boost
+    DSP layers / 空间功能层
+      bass
+      low_body
+      front_L/front_R
+      side_width
+      rear_ambience
+      high_air
+    Legacy renderer / 传统渲染
+      renderer_4ch.py
+      LF/RF/LB/RB
+      rear decorrelation
+      rear tone softening
+      rear floor
+      spatial safety
+      energy matching
+      limiter
+    Pseudo-object path / 伪对象链路
+      scene JSON
+        pseudo_object_spatial_v1
+        positions
+        spread/depth/diffuseness
+        constraints
+        decoder hints
+      object audio
+        bass_anchor
+        front_core
+        side_width
+        rear_ambience
+        high_air
+        low_body_support
+      decoders
+        dbap_quad_v1
+        vbap_2d_v1
+        hybrid_vbap_v1
+    Outputs / 输出
+      4ch WAV
+      binaural WAV
+      pseudo quad WAV
+      diagnostics JSON
+      batch reports
+```
+
 ## Overview / 概览
 
-**EN:** This project is a non-AI, rule-based / signal-processing-driven stereo → 4.0 / pseudo-object spatializer. The legacy path still outputs fixed `[LF, RF, LB, RB]` 4-channel audio. The `Pseudo-Object` branch additionally exports scene metadata and object layer material, so that later work can decode the same layer content through different speaker-layout decoders.
+**EN:** This project is a non-AI, rule-based / signal-processing-driven stereo →
+4.0 / pseudo-object spatializer. The legacy path still outputs fixed
+`[LF, RF, LB, RB]` 4-channel audio. The `Pseudo-Object` branch additionally
+exports scene metadata and object layer material, so later work can decode the
+same layer content through different speaker-layout decoders.
 
 **中文：** 本项目是一个非 AI、规则 / 信号处理驱动的 stereo → 4.0 / pseudo-object spatializer。legacy 路径仍然输出固定 `[LF, RF, LB, RB]` 四声道；`Pseudo-Object` 分支额外导出 scene metadata 和 object layer material，以便后续使用不同 speaker layout decoder 进行解码。
 
@@ -155,7 +312,11 @@ Related files / 相关文件：
    - **EN:** This is the original deterministic channel renderer in `renderer_4ch.py`. It directly maps DSP spatial-function layers to `[LF, RF, LB, RB]` and remains the default behavior for `4ch`, `binaural`, and `both` output modes.
    - **中文：** 这是 `renderer_4ch.py` 中原有的 deterministic channel renderer。它会直接把 DSP spatial-function layers 映射到 `[LF, RF, LB, RB]`，并且仍然是 `4ch`、`binaural`、`both` 输出模式的默认行为。
 2. **Pseudo-object scene mode / Pseudo-object scene 模式**
-   - **EN:** This is an additional metadata path that turns the same DSP layers into a `pseudo_object_spatial_v1` scene. These pseudo objects are spatial-function objects, not real instrument objects and not source-separated clean stems. Object audio files are layer material for a decoder, not final speaker feeds.
+   - **EN:** This is an additional metadata path that turns the same DSP layers
+     into a `pseudo_object_spatial_v1` scene. These pseudo objects are
+     spatial-function objects, not real instrument objects and not source-separated
+     clean stems. Object audio files are layer material for a decoder, not final
+     speaker feeds.
    - **中文：** 这是一条额外的 metadata 路径，会把同一组 DSP layers 转换成 `pseudo_object_spatial_v1` scene。这些 pseudo objects 是 spatial-function objects，不是真实乐器对象，也不是 source-separated clean stems。object audio files 是给 decoder 使用的 layer material，不是最终 speaker feeds。
 
 **EN:** The first pseudo-object version emits six objects.
@@ -218,7 +379,10 @@ python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic
   - **EN:** Recommended V2 mode. It keeps `front_core` as a stereo bed, uses VBAP for sharper objects such as `bass_anchor`, and uses spread VBAP for diffuse or lateral beds such as `side_width`, `rear_ambience`, and `high_air`.
   - **中文：** 推荐的 V2 模式。它将 `front_core` 保持为 stereo bed，对 `bass_anchor` 这类更 sharp 的 object 使用 VBAP，对 `side_width`、`rear_ambience`、`high_air` 这类 diffuse / lateral bed 使用 spread VBAP。
 
-**EN:** VBAP is layout-driven decoding. It calculates speaker gains from object azimuths and speaker azimuths instead of hard-coding fixed 4-channel routing amounts. V2 supports horizontal 2D layouts and the default quad 4.0 layout. Future versions can extend the same renderer interface to other planar arrays.
+**EN:** VBAP is layout-driven decoding. It calculates speaker gains from object
+azimuths and speaker azimuths instead of hard-coding fixed 4-channel routing
+amounts. V2 supports horizontal 2D layouts and the default quad 4.0 layout.
+Future versions can extend the same renderer interface to other planar arrays.
 
 **中文：** VBAP 是 layout-driven decoding。它根据 object azimuth 和 speaker azimuth 计算 speaker gains，而不是 hard-code 固定的 4-channel routing amount。V2 支持水平 2D layout 和默认 quad 4.0 layout；未来版本可以沿用同一个 renderer interface 扩展到其他平面扬声器阵列。
 
@@ -248,6 +412,649 @@ Decoded file names include the renderer family / 解码后的文件名会包含 
 - `mono_fold_down_delta_db_avg4_legacy`
 - `mono_fold_down_delta_db_front_norm`
 - `mono_front_only_delta_db`
+
+## Complete Formula Reference / 完整公式参考
+
+This section summarizes the equations implemented by the current code path. Symbols use sample index `n`; all audio arrays are float32 in practice. `EPS = 1e-9` is used to avoid division by zero.
+
+本节汇总代码当前实现的主要公式。下列符号以采样点 `n` 为索引；实际处理数组为 float32。`EPS = 1e-9` 用于避免除零。
+
+### 1. Basic helpers / 基础函数
+
+Given an array `x`:
+
+\[
+\operatorname{rms}(x)=\sqrt{\operatorname{mean}(x^2)+\epsilon}
+\]
+
+\[
+\operatorname{peak}(x)=\max(|x|)+\epsilon
+\]
+
+\[
+\operatorname{db}(a)=20\log_{10}(\max(a,\epsilon))
+\]
+
+Peak normalization to target `p_t`:
+
+\[
+\operatorname{normalize\_peak}(x,p_t)=
+\begin{cases}
+x\cdot p_t/\operatorname{peak}(x), & \operatorname{peak}(x)>p_t\\
+x, & \text{otherwise}
+\end{cases}
+\]
+
+### 2. Band split / 频段划分
+
+For each channel, `band_split(x, fs)` uses causal Butterworth SOS filters:
+
+\[
+B_{bass}=LP_{<120Hz}(x)
+\]
+
+\[
+B_{low\_mid}=BP_{120-500Hz}(x)
+\]
+
+\[
+B_{mid}=BP_{500-2000Hz}(x)
+\]
+
+\[
+B_{high\_mid}=BP_{2000-6000Hz}(x)
+\]
+
+\[
+B_{air}=HP_{>6000Hz}(x)
+\]
+
+### 3. Mid/Side and analysis features / M/S 与分析特征
+
+For stereo input `L[n]`, `R[n]`:
+
+\[
+M[n]=\frac{L[n]+R[n]}{\sqrt{2}}\approx0.70710678(L[n]+R[n])
+\]
+
+\[
+S[n]=\frac{L[n]-R[n]}{\sqrt{2}}\approx0.70710678(L[n]-R[n])
+\]
+
+Stereo width and center dominance:
+
+\[
+\operatorname{stereo\_width}=\frac{\operatorname{rms}(S)}{\operatorname{rms}(M)+\operatorname{rms}(S)+\epsilon}
+\]
+
+\[
+\operatorname{center\_dominance}=\frac{\operatorname{rms}(M)}{\operatorname{rms}(M)+\operatorname{rms}(S)+\epsilon}
+\]
+
+Band coherence for a band `b`:
+
+\[
+\operatorname{coh}_b=\frac{|\operatorname{mean}(L_bR_b)|}{\sqrt{\operatorname{mean}(L_b^2)\operatorname{mean}(R_b^2)+\epsilon}}
+\]
+
+Band side ratio:
+
+\[
+\operatorname{side\_ratio}_b=\frac{\operatorname{rms}(S_b)}{\operatorname{rms}(M_b)+\operatorname{rms}(S_b)+\epsilon}
+\]
+
+High diffuse ratio:
+
+\[
+\operatorname{high\_diffuse\_ratio}=0.55(1-\operatorname{coh}_{high\_mid})\operatorname{side\_ratio}_{high\_mid}+0.45(1-\operatorname{coh}_{air})\operatorname{side\_ratio}_{air}
+\]
+
+Transient density uses RMS frames with hop `H=512`:
+
+\[
+f_k=\sqrt{\operatorname{mean}(x_{kH:kH+H}^2)+\epsilon}
+\]
+
+\[
+d_k=\max(0,f_{k+1}-f_k)
+\]
+
+\[
+T=\operatorname{mean}(d)+1.5\operatorname{std}(d)
+\]
+
+\[
+\operatorname{transient\_density}=\operatorname{mean}(d_k>T)
+\]
+
+### 4. DSP spatial-function layers / DSP 空间功能层
+
+For each band, define:
+
+\[
+M_b=0.70710678(L_b+R_b),\quad S_b=0.70710678(L_b-R_b)
+\]
+
+Layer extraction in `layer_extractor.py`:
+
+\[
+\operatorname{bass}=M_{bass}
+\]
+
+\[
+\operatorname{low\_body}=0.95M_{low\_mid}+0.12M_{mid}
+\]
+
+\[
+\operatorname{front\_L}=L_{low\_mid}+L_{mid}+0.96L_{high\_mid}+0.62L_{air}
+\]
+
+\[
+\operatorname{front\_R}=R_{low\_mid}+R_{mid}+0.96R_{high\_mid}+0.62R_{air}
+\]
+
+\[
+\operatorname{side\_width}=0.05S_{low\_mid}+0.28S_{mid}+0.92S_{high\_mid}+0.82S_{air}
+\]
+
+\[
+\operatorname{rear\_ambience}=0.018S_{mid}+0.88S_{high\_mid}+0.54S_{air}+0.014M_{high\_mid}+0.018M_{air}
+\]
+
+\[
+\operatorname{high\_air}=0.76S_{air}+0.08M_{air}
+\]
+
+### 5. Preset adaptation and routing guards / 预设自适应与路由保护
+
+`apply_preset()` optionally adapts routing values with analysis features. Let `clip(x,a,b)=min(max(x,a),b)`.
+
+\[
+\operatorname{center\_guard}=clip\left(\frac{center\_coherence-0.3}{0.7},0,1\right)
+\]
+
+\[
+\operatorname{transient\_guard}=clip\left(\frac{transient}{0.05},0,1\right)
+\]
+
+\[
+\operatorname{width\_boost}=clip\left(0.85+\frac{width}{0.40},0.85,1.45\right)
+\]
+
+\[
+\operatorname{diffuse\_boost}=clip(1+1.4\cdot high\_diffuse,1,1.35)
+\]
+
+When analysis adaptation is enabled:
+
+\[
+side\_rear \leftarrow side\_rear(1-0.10\cdot guard\_scale\cdot center\_guard)\cdot width\_boost
+\]
+
+\[
+amb\_rear \leftarrow amb\_rear(1-0.08\cdot guard\_scale\cdot center\_guard)\cdot diffuse\_boost\cdot(1-0.05\cdot guard\_scale\cdot transient\_guard)
+\]
+
+\[
+air\_rear \leftarrow air\_rear(1-0.14\cdot guard\_scale\cdot center\_guard)\cdot clip(1+0.7\cdot high\_diffuse,1,1.20)\cdot(1-0.08\cdot guard\_scale\cdot transient\_guard)
+\]
+
+\[
+decorrelation \leftarrow decorrelation(1-0.14\cdot guard\_scale\cdot transient\_guard)
+\]
+
+\[
+lowbody\_rear \leftarrow lowbody\_rear(1-0.12\cdot guard\_scale\cdot center\_guard)(1-0.10\cdot guard\_scale\cdot transient\_guard)
+\]
+
+\[
+bass\_quad \leftarrow bass\_quad(1-0.18\cdot guard\_scale\cdot transient\_guard)
+\]
+
+Important clipping ranges:
+
+\[
+side\_front,side\_rear,amb\_rear,air\_rear,rear\_master,decorrelation,bass\_quad,lowbody\_rear\in[0,1.8]
+\]
+
+\[
+rear\_floor\_ratio\in[0,0.30],\quad max\_rear\_makeup\in[1,8]
+\]
+
+\[
+rear\_air\_gain\in[0.08,1],\quad rear\_highmid\_gain\in[0.18,1.10]
+\]
+
+\[
+bass\_gain\in[0.85,1.30],\quad bass\_quad\in[0,0.25],\quad lowbody\_rear\in[0,0.60]
+\]
+
+### 6. Legacy fixed 4.0 renderer / 传统固定四声道渲染
+
+Output order is always:
+
+\[
+out_4[n]=[LF[n],RF[n],LB[n],RB[n]]
+\]
+
+Bypass preset:
+
+\[
+LF=L,\quad RF=R,\quad LB=0,\quad RB=0
+\]
+
+`ms_baseline` preset:
+
+\[
+side=0.70710678(L-R)
+\]
+
+\[
+LB,RB=\operatorname{decorrelate\_rear}(side,amount=decorrelation)
+\]
+
+\[
+LB\leftarrow LB\cdot rear\_master\cdot side\_rear,\quad RB\leftarrow RB\cdot rear\_master\cdot side\_rear
+\]
+
+Main renderer bass distribution:
+
+\[
+bass'=bass\cdot bass\_gain
+\]
+
+\[
+bass\_front\_gain=(1-bass\_quad)\cdot0.7071+bass\_quad\cdot0.5
+\]
+
+\[
+bass\_rear\_gain=bass\_quad\cdot0.5
+\]
+
+Front channels:
+
+\[
+LF=bass\_front\_gain\cdot bass'+front\_L+side\_front\cdot side\_width
+\]
+
+\[
+RF=bass\_front\_gain\cdot bass'+front\_R-side\_front\cdot side\_width
+\]
+
+Rear base and rear channels:
+
+\[
+rear\_base=side\_rear\cdot side\_width+amb\_rear\cdot rear\_ambience+air\_rear\cdot high\_air
+\]
+
+\[
+LB_0,RB_0=\operatorname{decorrelate\_rear}(rear\_base,amount=decorrelation)
+\]
+
+\[
+LB=LB_0\cdot rear\_master+bass\_rear\_gain\cdot bass'+lowbody\_rear\cdot low\_body
+\]
+
+\[
+RB=RB_0\cdot rear\_master+bass\_rear\_gain\cdot bass'+lowbody\_rear\cdot low\_body
+\]
+
+Rear tone softening:
+
+\[
+soften(x)=B_{bass}+B_{low\_mid}+B_{mid}+rear\_highmid\_gain\cdot B_{high\_mid}+rear\_air\_gain\cdot B_{air}
+\]
+
+Rear floor protection:
+
+\[
+target=\operatorname{rms}(front)\cdot rear\_floor\_ratio
+\]
+
+If `rear_rms < target`:
+
+\[
+gain=clip\left(\frac{target}{rear\_rms+\epsilon},1,max\_rear\_makeup\right)
+\]
+
+\[
+LB,RB\leftarrow gain\cdot[LB,RB]
+\]
+
+### 7. Rear decorrelation / 后方去相关
+
+For amount `a=clip(amount,0,1)`:
+
+\[
+d_L=fs(0.0055+0.0030a),\quad d_R=fs(0.0085+0.0040a)
+\]
+
+\[
+g_1=0.28+0.24a,\quad g_2=0.20+0.20a
+\]
+
+The left rear path delays `x`; the right rear path delays `-x`. Both pass through two all-pass filters. For an all-pass delay of `D` and coefficient `g`, the implementation uses:
+
+\[
+b=[-g,0,\dots,1],\quad a=[1,0,\dots,-g]
+\]
+
+which corresponds to:
+
+\[
+y[n]-g\,y[n-D]=-g\,x[n]+x[n-D]
+\]
+
+### 8. Spatial safety and quality metrics / 空间安全与质量指标
+
+Let:
+
+\[
+front=0.5(LF+RF),\quad rear=0.5(LB+RB)
+\]
+
+\[
+input\_mid=0.70710678(L+R),\quad input\_side=0.70710678(L-R),\quad input\_mono=0.5(L+R)
+\]
+
+\[
+rear\_front\_ratio=\frac{\operatorname{rms}([LB,RB])}{\operatorname{rms}([LF,RF])+\epsilon}
+\]
+
+\[
+rear\_front\_db=20\log_{10}(rear\_front\_ratio)
+\]
+
+Rear vocal leakage score:
+
+\[
+score_{vocal}=clip01(0.34c_{mid}+0.28c_{highmid}+0.18clip(mr/0.34,0,1)+0.12clip(hr/0.30,0,1)+0.08vocal\_hint-0.18side\_explanation)
+\]
+
+where `c_mid` and `c_highmid` are absolute correlations between rear bands and input-center bands; `mr/hr` are rear/input RMS ratios for mid/high-mid bands.
+
+Sub-150 retention:
+
+\[
+sub150\_ratio=\frac{\operatorname{rms}(bass(0.5(LF+RF)))}{\operatorname{rms}(bass(input\_mono))+\epsilon}
+\]
+
+\[
+sub150\_score=clip01\left(1-\frac{|sub150\_ratio-1|}{0.35}\right)
+\]
+
+Low-mid mud:
+
+\[
+lowmid\_rear\_ratio=\frac{\operatorname{rms}(rear_{low\_mid})}{\operatorname{rms}(front_{low\_mid})+\epsilon}
+\]
+
+\[
+low\_mid\_mud=clip01\left(\frac{lowmid\_rear\_ratio-0.30}{0.55}\right)
+\]
+
+Transient smear:
+
+\[
+transient\_smear=clip01\left(0.55clip\left(\frac{T_{rear}-0.85T_{front}}{0.12},0,1\right)+0.45clip\left(\frac{T_{rear}-0.90T_{input}}{0.12},0,1\right)\right)
+\]
+
+High harshness:
+
+\[
+high\_harshness=clip01\left(0.58clip\left(\frac{rear\_air\_ratio-0.34}{0.70},0,1\right)+0.42clip\left(\frac{rear\_highmid\_ratio-0.28}{0.62},0,1\right)\right)
+\]
+
+Mono fold-downs:
+
+\[
+mono_{avg4}=0.25(LF+RF+LB+RB)
+\]
+
+\[
+mono_{front\_norm}=0.5(LF+RF+LB+RB)
+\]
+
+\[
+mono_{front\_only}=0.5(LF+RF)
+\]
+
+Phase/correlation risk:
+
+\[
+phase\_risk=clip01\left(0.45clip\left(\frac{-corr_{rear}-0.10}{0.80},0,1\right)+0.35clip\left(\frac{|mono\_delta\_db|-1.5}{5.0},0,1\right)+0.20clip\left(\frac{0.82-mono\_corr}{0.60},0,1\right)\right)
+\]
+
+Spatial excess:
+
+\[
+spatial\_excess=clip01(0.24clip((rear\_front\_ratio-0.22)/0.38,0,1)+0.22score_{vocal}+0.18low\_mid\_mud+0.16transient\_smear+0.12high\_harshness+0.08phase\_risk)
+\]
+
+### 9. Energy matching and limiter / 能量匹配与限幅
+
+Input/output energy:
+
+\[
+E_{in}=\operatorname{mean}(L^2+R^2)+\epsilon
+\]
+
+\[
+E_{out}=\operatorname{mean}(LF^2+RF^2+LB^2+RB^2)+\epsilon
+\]
+
+\[
+target\_gain=\sqrt{E_{in}/E_{out}}
+\]
+
+With default `max_boost_db=1.0`, `max_cut_db=-3.0`:
+
+\[
+gain=clip(target\_gain,10^{-3/20},10^{1/20})
+\]
+
+\[
+out\leftarrow gain\cdot out
+\]
+
+Peak limiter with threshold `t=0.98`:
+
+\[
+p=\max(|out|)+10^{-9}
+\]
+
+\[
+out_{limited}=\begin{cases}
+out, & p\le t\\
+out\cdot t/p, & p>t
+\end{cases}
+\]
+
+### 10. Pseudo-object scene formulas / Pseudo-object 场景公式
+
+Scene-level values in `pseudo_object_scene.py`:
+
+\[
+front\_spread=clip(0.35+0.20\cdot stereo\_width,0.35,0.55)
+\]
+
+\[
+rear\_spread=clip(0.85+0.10\cdot high\_diffuse\_ratio,0.85,0.95)
+\]
+
+\[
+side\_gain=clip(0.5(side\_front+side\_rear),0.25,0.85)
+\]
+
+\[
+object\_decorrelation=clip(decorrelation,0,1)
+\]
+
+Object audio mapping:
+
+\[
+bass\_anchor=bass
+\]
+
+\[
+front\_core=[front\_L,front\_R]
+\]
+
+\[
+side\_width=side\_width,\quad rear\_ambience=rear\_ambience,\quad high\_air=high\_air,\quad low\_body\_support=low\_body
+\]
+
+Default object positions and gains:
+
+| Object | Azimuth | Radius | Spread | Depth | Diffuseness | Gain source |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `bass_anchor` | `0°` | `0.20` | `0.10` | `0.10` | `0.05` | `bass_gain` |
+| `front_core` | `0°` | `0.45` | `front_spread` | `0.35` | `0.15` | `1.0` |
+| `side_width` | `90°` | `0.75` | `0.65` | `0.50` | `0.45` | `side_gain` |
+| `rear_ambience` | `180°` | `0.90` | `rear_spread` | `0.75` | `0.85` | `amb_rear` |
+| `high_air` | `180°` | `0.88` | `0.80` | `0.65` | `0.75` | `air_rear` |
+| `low_body_support` | `0°` | `0.50` | `0.35` | `0.30` | `0.20` | `0.5 * lowbody_rear` |
+
+Coordinate convention:
+
+\[
+xy(\theta,r)=r[\sin(\theta),\cos(\theta)]
+\]
+
+where `0° = front`, `+90° = right`, `-90° = left`, and `180°/-180° = rear`.
+
+### 11. DBAP pseudo-object renderer / DBAP 伪对象渲染
+
+For object position `p_o=xy(azimuth,radius)` and speaker position `p_i=xy(azimuth_i,radius_i)`:
+
+\[
+d_i=\|p_o-p_i\|_2
+\]
+
+\[
+rolloff=1.6-1.2\cdot spread
+\]
+
+\[
+\tilde{g_i}=\frac{1}{(d_i+0.25)^{rolloff}}
+\]
+
+After constraints, equal-power normalization is applied:
+
+\[
+g_i=\frac{\tilde{g_i}}{\sqrt{\sum_j \tilde{g_j}^2}+\epsilon}
+\]
+
+Then object gain is applied:
+
+\[
+g_i \leftarrow g_i\cdot object\_gain
+\]
+
+### 12. VBAP and spread-VBAP / VBAP 与扩展 VBAP
+
+For 2D VBAP, choose the adjacent speaker pair `(a,b)` enclosing the object azimuth. Unit vectors:
+
+\[
+u_s=[\sin(\theta_s),\cos(\theta_s)]^T
+\]
+
+Solve:
+
+\[
+[u_a\;u_b]\begin{bmatrix}g_a\\g_b\end{bmatrix}=u_{source}
+\]
+
+Clamp negative values and equal-power normalize:
+
+\[
+g=max(g,0),\quad g\leftarrow\frac{g}{\sqrt{g_a^2+g_b^2}+\epsilon}
+\]
+
+Spread VBAP casts virtual rays around the center azimuth:
+
+\[
+width_{deg}=15+75\cdot spread
+\]
+
+\[
+ray_k\in\operatorname{linspace}(azimuth-width/2,azimuth+width/2,N),\quad N=5
+\]
+
+\[
+g_{spread}=\operatorname{normalize}_{equal\_power}\left(\sum_{k=1}^{N}VBAP(ray_k)\right)
+\]
+
+Hybrid renderer selection:
+
+\[
+renderer(obj)=
+\begin{cases}
+spread\_vbap, & obj.id=side\_width\\
+spread\_vbap, & diffuseness\ge0.65\ \text{or object\_type}\in\{diffuse\_bed, high\_air\_bed, lateral\_bed\}\\
+vbap, & \text{otherwise}
+\end{cases}
+\]
+
+### 13. Pseudo-object constraints and bed handling / 伪对象约束与 stereo bed
+
+For `front_core` stereo bed:
+
+\[
+rear\_cross=0.04+0.10\cdot spread
+\]
+
+If `keep_front` is true:
+
+\[
+rear\_cross\leftarrow\min(rear\_cross,0.08)
+\]
+
+Then:
+
+\[
+LF\mathrel{+}=front\_L\cdot gain,\quad RF\mathrel{+}=front\_R\cdot gain
+\]
+
+\[
+LB\mathrel{+}=front\_L\cdot gain\cdot rear\_cross,\quad RB\mathrel{+}=front\_R\cdot gain\cdot rear\_cross
+\]
+
+For mono objects:
+
+\[
+speaker_i\mathrel{+}=x\cdot g_i
+\]
+
+If `diffuseness >= 0.6` and `decorrelation > 0`, rear channels use `decorrelate_rear(x)` while front channels use the dry object signal:
+
+\[
+LF\mathrel{+}=xg_{LF},\quad RF\mathrel{+}=xg_{RF},\quad LB\mathrel{+}=x_{decor,L}g_{LB},\quad RB\mathrel{+}=x_{decor,R}g_{RB}
+\]
+
+Constraint examples:
+
+- `keep_front`: rear gains are limited; if raw VBAP routes to rear, gains are reset toward front `0°`.
+- `prefer_rear`: front gains are multiplied by `0.18` in VBAP or `0.22` in DBAP.
+- `limited_rear`: rear gains are multiplied by `0.35`.
+- `allowed_speaker_roles`: non-allowed speakers are multiplied by `0.08`.
+- `forbidden_speaker_roles`: forbidden speaker gains are set to `0`.
+
+### 14. Speaker layout gain trim / 扬声器布局增益微调
+
+Default quad layout:
+
+\[
+LF=-45^\circ,\quad RF=45^\circ,\quad LB=-135^\circ,\quad RB=135^\circ
+\]
+
+Per-speaker gain trim:
+
+\[
+speaker_i\leftarrow speaker_i\cdot 10^{gain\_trim\_db_i/20}
+\]
+
+V1 preserves `delay_ms` in the layout schema, but does not yet apply delay samples.
 
 ## Installation / 安装
 
