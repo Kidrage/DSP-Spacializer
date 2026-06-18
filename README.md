@@ -35,8 +35,9 @@ decoder, and not a listener preference learning or auto-refine system.
 - No DBAP, VBAP, or hybrid pseudo-object renderer.
 - No listener preference model or automatic iterative refinement.
 
-Experimental object-scene and layout-decoder work belongs on the
-`Pseudo-Object` branch. See [docs/BRANCH_STRATEGY.md](docs/BRANCH_STRATEGY.md).
+Pseudo-object scene/export/DBAP/VBAP/hybrid renderer work has been split into:
+`https://github.com/Kidrage/Pseudo-Object-DSP-Spatializer`.
+See [docs/BRANCH_STRATEGY.md](docs/BRANCH_STRATEGY.md).
 
 ## Install
 
