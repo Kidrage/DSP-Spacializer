@@ -1,0 +1,18 @@
+{
+  "profile_id": "quad_4p0_feedback_example",
+  "base": "auto_acoustic",
+  "parameter_offsets": {
+    "rear_floor_ratio": 0.015,
+    "side_rear": 0.08,
+    "amb_rear": 0.04,
+    "rear_master": 0.03,
+    "air_rear": -0.01,
+    "rear_highmid_gain": -0.03
+  },
+  "parameter_multipliers": {},
+  "parameter_values": {},
+  "reason": [
+    "Example profile for songs where the spatial mix is stable but the rear field needs a small, safe lift.",
+    "High-frequency rear energy is slightly reduced so the extra envelopment does not start from more air/harshness."
+  ]
+}
