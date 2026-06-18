@@ -1,0 +1,21 @@
+# High-value source/config/test index
+
+run_spatializer.py
+batch_spatial_diagnostics.py
+config_center.py
+audio_io.py
+streaming_analyzer.py
+layer_extractor.py
+layer_router.py
+renderer_4ch.py
+binaural_renderer.py
+spatial_safety.py
+spatial_quality_report.py
+presets.py
+tests/test_run_spatializer_cli.py
+tests/test_spatial_safety.py
+tests/test_batch_spatial_diagnostics.py
+tests/test_text_integrity.py
+README.md
+docs/BRANCH_STRATEGY.md
+AGENTS.md
