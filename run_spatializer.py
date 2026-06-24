@@ -10,9 +10,12 @@ import argparse
 import json
 from pathlib import Path
 
+import numpy as np
+
 # ---- project imports ----
 import config_center as cfg
 from audio_io import discover_audio_files, export_audio, load_audio
+from auto_refine import refine_auto_acoustic_routing, summarize_refine_actions
 from binaural_renderer import (
     apply_room_rir_to_binaural,
     make_small_dry_room_stereo_rir,
@@ -25,7 +28,12 @@ from energy_manager import match_energy
 from layer_extractor import extract_layers
 from layer_router import apply_preset as route_apply_preset
 from limiter import apply_limiter
-from presets import resolve_preset, available_presets
+from presets import (
+    apply_phase5a_rear_content_candidate,
+    apply_phase5a_v31_candidate,
+    available_presets,
+    resolve_preset,
+)
 from renderer_4ch import render_4ch
 from spatial_safety import (
     apply_spatial_safety,
@@ -44,6 +52,12 @@ def _safe_stem(path):
     """Return a safe filename stem without tricky characters."""
     stem = Path(path).stem
     return stem.replace(" ", "_").replace("(", "").replace(")", "")
+
+
+def _crest_factor_db(audio):
+    """Return sample peak/RMS crest factor for gain-staging diagnostics."""
+    audio = np.asarray(audio, dtype=np.float32)
+    return float(db(peak(audio) / (rms(audio) + 1e-9)))
 
 
 # ---------------------------------------------------------------------------
@@ -101,6 +115,22 @@ def process_file(input_path, output_dir, options):
         analysis,
         rear_enhancement=options["auto_acoustic_rear_enhancement"],
     )
+    rear_content_candidate = {"enabled": False}
+    v31_candidate = {"enabled": False}
+    if (
+        options.get("phase5a_rear_content_candidate", False)
+        and preset_mode_used == "auto_acoustic"
+    ):
+        preset_values, rear_content_candidate = apply_phase5a_rear_content_candidate(
+            preset_values, auto_info,
+        )
+    elif (
+        options.get("phase5a_v31_candidate", False)
+        and preset_mode_used == "auto_acoustic"
+    ):
+        preset_values, v31_candidate = apply_phase5a_v31_candidate(
+            preset_values, auto_info, analysis,
+        )
 
     # ---- route layers ----
     routing = route_apply_preset(
@@ -110,7 +140,7 @@ def process_file(input_path, output_dir, options):
         apply_analysis_adaptation=(preset_mode_used != "auto_acoustic"),
     )
 
-    # ---- extract layers & render 4ch ----
+    # ---- extract layers & render 4ch (initial) ----
     layers = extract_layers(left, right, sample_rate)
     raw_4ch = render_4ch(left, right, layers, routing, sample_rate, preset_name)
 
@@ -127,9 +157,97 @@ def process_file(input_path, output_dir, options):
     # ---- quality risk classification thresholds ----
     thresholds = options.get("quality_thresholds") or load_quality_thresholds(options.get("quality_thresholds_path"))
 
-    # ---- energy match + limiter ----
-    energy_matched = match_energy((left, right), safety_4ch, sample_rate)
-    final_4ch = apply_limiter(energy_matched, sample_rate=sample_rate)
+    # ---- quality metrics on pre-mastering audio (for refinement decision) ----
+    pre_master_metrics = compute_quality_metrics(
+        left, right, safety_4ch, sample_rate, analysis=analysis,
+    )
+
+    # ---- closed-loop refinement (auto_acoustic only) ----
+    refine_actions = []
+    refine_routing_initial = dict(routing)
+    refine_metrics_initial = dict(pre_master_metrics)
+    refine_passes_applied = 0
+
+    if (options.get("auto_acoustic_refine")
+        and preset_mode_used == "auto_acoustic"
+        and options["auto_acoustic_refine_passes"] > 0):
+
+        for _ in range(options["auto_acoustic_refine_passes"]):
+            prev_metrics = dict(pre_master_metrics)
+            prev_routing = dict(routing)
+            prev_safety_4ch = safety_4ch.copy()
+            prev_safety_report = safety_report
+
+            refined_routing, pass_actions = refine_auto_acoustic_routing(
+                routing, analysis, prev_metrics,
+                max_step=options["auto_acoustic_refine_max_step"],
+            )
+            if not pass_actions:
+                break
+
+            # Re-render with refined routing (skip layer_router — routing is complete)
+            raw_4ch = render_4ch(left, right, layers, refined_routing, sample_rate, preset_name)
+            safety_4ch, safety_report = apply_spatial_safety(
+                left, right, raw_4ch, sample_rate,
+                analysis=analysis, enabled=options["spatial_safety_enabled"],
+            )
+            new_metrics = compute_quality_metrics(
+                left, right, safety_4ch, sample_rate, analysis=analysis,
+            )
+
+            # ---- overshoot guard: if this pass caused severe regression, revert ----
+            spatial_delta = new_metrics.get("spatial_excess_score", 0) - prev_metrics.get("spatial_excess_score", 0)
+            harsh_delta = new_metrics.get("high_harshness_score", 0) - prev_metrics.get("high_harshness_score", 0)
+            mud_delta = new_metrics.get("low_mid_mud_score", 0) - prev_metrics.get("low_mid_mud_score", 0)
+
+            if spatial_delta > 0.20 or harsh_delta > 0.30 or mud_delta > 0.30:
+                # Overshoot detected — revert to previous routing + audio
+                routing = prev_routing
+                safety_4ch = prev_safety_4ch
+                safety_report = prev_safety_report
+                pre_master_metrics = prev_metrics
+                refine_actions.append({
+                    "reason": "overshoot_guard_reverted",
+                    "spatial_excess_delta": round(spatial_delta, 3),
+                    "high_harshness_delta": round(harsh_delta, 3),
+                    "low_mid_mud_delta": round(mud_delta, 3),
+                    "reverted_actions": pass_actions,
+                })
+                break
+
+            refine_actions.extend(pass_actions)
+            refine_passes_applied += 1
+            routing = refined_routing
+            pre_master_metrics = new_metrics
+
+    # ---- gain staging + linked dynamic limiter (Phase 5A v2) ----
+    energy_matched, energy_match_report = match_energy(
+        (left, right),
+        safety_4ch,
+        sample_rate,
+        reference="front",
+        return_report=True,
+    )
+    final_4ch, limiter_report = apply_limiter(
+        energy_matched,
+        sample_rate=sample_rate,
+        return_report=True,
+    )
+    input_pair = np.column_stack((left, right)).astype(np.float32)
+    final_front = final_4ch[:, :2]
+    gain_staging_report = {
+        "version": 2,
+        "energy_match": energy_match_report,
+        "limiter": limiter_report,
+        "input_stereo_rms": float(rms(input_pair)),
+        "output_front_rms": float(rms(final_front)),
+        "front_rms_delta_db": float(db(rms(final_front) / (rms(input_pair) + 1e-9))),
+        "input_stereo_crest_factor_db": _crest_factor_db(input_pair),
+        "output_front_crest_factor_db": _crest_factor_db(final_front),
+        "front_crest_factor_delta_db": float(
+            _crest_factor_db(final_front) - _crest_factor_db(input_pair)
+        ),
+    }
     final_quality_metrics = compute_quality_metrics(
         left,
         right,
@@ -288,10 +406,21 @@ def process_file(input_path, output_dir, options):
         },
         "quality_delta": quality_delta,
         "over_protection": over_protection,
+        "gain_staging": gain_staging_report,
+        "phase5a_rear_content_candidate": rear_content_candidate,
+        "phase5a_v31_candidate": v31_candidate,
         "output_paths": output_paths,
         "rear_to_front_rms_ratio": rear_front_ratio,
         "rear_to_front_db": float(db(rear_front_ratio)),
         "peak": float(peak(final_4ch)),
+        # ---- closed-loop refine diagnostics (Phase 4) ----
+        "auto_acoustic_refine_enabled": options.get("auto_acoustic_refine", False),
+        "auto_acoustic_refine_passes_applied": refine_passes_applied,
+        "auto_acoustic_refine_routing_initial": refine_routing_initial,
+        "auto_acoustic_refine_routing_final": dict(routing),
+        "auto_acoustic_refine_metrics_initial": refine_metrics_initial,
+        "auto_acoustic_refine_metrics_final": dict(pre_master_metrics),
+        "auto_acoustic_refine_actions": refine_actions,
     })
 
     if options["export_diagnostics"]:
@@ -315,10 +444,31 @@ def process_file(input_path, output_dir, options):
         f"harsh={final_quality_metrics['high_harshness_score']:.2f}, "
         f"monoΔ={final_quality_metrics['mono_fold_down_delta_db']:.2f} dB"
     )
+    print(
+        "  gain staging: "
+        f"frontΔ={gain_staging_report['front_rms_delta_db']:.2f} dB, "
+        f"match={energy_match_report['applied_gain_db']:.2f} dB, "
+        f"limiter maxGR={limiter_report['max_gain_reduction_db']:.2f} dB, "
+        f"p95GR={limiter_report['p95_gain_reduction_db']:.2f} dB"
+    )
+    if refine_actions:
+        print(f"  refine: {refine_passes_applied} pass(es), {len(refine_actions)} action(s)")
+        for line in summarize_refine_actions(refine_actions):
+            print(f"    {line}")
     for key, path in output_paths.items():
         print(f"  {key}: {path}")
 
     return diagnostics
+
+
+# ---------------------------------------------------------------------------
+def _resolve_refine_flag(args, cfg):
+    """Resolve --auto-acoustic-refine / --no-auto-acoustic-refine vs config default."""
+    if args.auto_acoustic_refine:
+        return True
+    if args.no_auto_acoustic_refine:
+        return False
+    return cfg.AUTO_ACOUSTIC_ENABLE_CLOSED_LOOP
 
 
 # ---------------------------------------------------------------------------
@@ -337,6 +487,8 @@ def build_options(args):
         "auto_acoustic_rear_enhancement": (
             args.auto_acoustic_rear_enhancement or cfg.AUTO_ACOUSTIC_REAR_ENHANCEMENT
         ),
+        "phase5a_rear_content_candidate": args.phase5a_rear_content_candidate,
+        "phase5a_v31_candidate": args.phase5a_v31_candidate,
         "export_binaural_front_pair": (
             args.export_binaural_front_pair or cfg.EXPORT_BINAURAL_FRONT_PAIR
         ),
@@ -365,6 +517,18 @@ def build_options(args):
         "speaker_distance_rear_m": cfg.SPEAKER_DISTANCE_REAR_M,
         "speaker_ref_distance_m": cfg.SPEAKER_DISTANCE_REFERENCE_M,
         "air_absorption_db_per_m": cfg.SPEAKER_AIR_ABSORPTION_DB_PER_M,
+        # ---- closed-loop refine ----
+        "auto_acoustic_refine": _resolve_refine_flag(args, cfg),
+        "auto_acoustic_refine_passes": (
+            args.auto_acoustic_refine_passes
+            if args.auto_acoustic_refine_passes is not None
+            else cfg.AUTO_ACOUSTIC_REFINE_PASSES
+        ),
+        "auto_acoustic_refine_max_step": (
+            args.auto_acoustic_refine_max_step
+            if args.auto_acoustic_refine_max_step is not None
+            else cfg.AUTO_ACOUSTIC_REFINE_MAX_STEP
+        ),
     }
 
 
@@ -399,6 +563,14 @@ def main():
         "--auto-acoustic-rear-enhancement", action="store_true",
         help="Apply safe rear enhancement plan when using auto_acoustic",
     )
+    parser.add_argument(
+        "--phase5a-rear-content-candidate", action="store_true",
+        help="Enable isolated Phase 5A.2 rear-content A/B candidate.",
+    )
+    parser.add_argument(
+        "--phase5a-v31-candidate", action="store_true",
+        help="Enable profiled Phase 5A V3.1 golden candidate.",
+    )
     parser.add_argument("--export-binaural-front-pair", action="store_true")
     parser.add_argument("--export-binaural-rear-pair", action="store_true")
     parser.add_argument("--export-binaural-ctc-4ch", action="store_true")
@@ -413,7 +585,25 @@ def main():
         action="store_true",
         help="Disable rear-channel safety guards while still reporting quality metrics.",
     )
+    parser.add_argument(
+        "--auto-acoustic-refine", action="store_true", default=None,
+        help="Enable closed-loop auto_acoustic refinement.",
+    )
+    parser.add_argument(
+        "--no-auto-acoustic-refine", action="store_true", default=None,
+        help="Disable closed-loop auto_acoustic refinement.",
+    )
+    parser.add_argument(
+        "--auto-acoustic-refine-passes", type=int, default=None,
+        help="Number of refine passes (default from config_center).",
+    )
+    parser.add_argument(
+        "--auto-acoustic-refine-max-step", type=float, default=None,
+        help="Refine step size 0.0-1.0 (default from config_center).",
+    )
     args = parser.parse_args()
+    if args.phase5a_rear_content_candidate and args.phase5a_v31_candidate:
+        parser.error("V3 and V3.1 candidate switches are mutually exclusive")
 
     # ---- resolve files to process ----
     files = resolve_input_files(args)

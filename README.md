@@ -8,7 +8,8 @@ DSP-Spacializer is a stable, non-AI stereo to fixed 4.0 / binaural DSP spatializ
 [LF, RF, LB, RB]
 ```
 
-The main branch is the clean fixed-channel line. It is not a source-separation system, not a pseudo-object scene renderer, not a DBAP/VBAP/hybrid object decoder, and not a built-in listener model. Feedback-loop work is kept in separate reviewable tooling so the stable renderer can be rolled back or used unchanged.
+The main branch is the clean fixed-channel line. It is not a source-separation system, not a pseudo-object scene renderer, not a DBAP/VBAP/hybrid object decoder, and not a built-in listener model.
+Feedback-loop work is kept in separate reviewable tooling so the stable renderer can be rolled back or used unchanged.
 
 ## 中文
 

@@ -1,0 +1,30 @@
+# Thresholds for auto_acoustic closed-loop refinement (auto_refine.py).
+# These are intentionally tighter than the spatial_safety fail thresholds:
+# refine should intervene BEFORE the safety net has to attenuate aggressively.
+#
+# Per-threshold notes:
+#   rear_presence_low_db:     rear/front quieter than this → trigger rear_presence_low rule
+#   rear_presence_safe_vocal: vocal_leakage must be BELOW this to boost rear
+#   bass_retention_low:       sub150_retention below this → trigger bass_retention_low rule
+#   bass_phase_safe:          phase_risk must be BELOW this to increase bass_quad
+#   vocal_leakage_high:       vocal_leakage above this → trigger vocal_leakage_high rule
+#   lowmid_mud_high:          low_mid_mud above this → trigger lowmid_mud_high rule
+#   harshness_high:           high_harshness above this → trigger harshness_high rule
+#   phase_risk_high:          phase_risk above this → trigger phase_risk_high rule
+#   transient_smear_high:     transient_smear above this → trigger transient_smear_high rule
+#   spatial_excess_high:      spatial_excess above this → trigger spatial_excess_high rule
+
+version: 1
+description: "Refinement trigger thresholds — when closed-loop auto_refine should intervene."
+
+thresholds:
+  rear_presence_low_db: -7.5
+  rear_presence_safe_vocal: 0.26
+  bass_retention_low: 0.55
+  bass_phase_safe: 0.38
+  vocal_leakage_high: 0.26
+  lowmid_mud_high: 0.42
+  harshness_high: 0.42
+  phase_risk_high: 0.42
+  transient_smear_high: 0.28
+  spatial_excess_high: 0.50

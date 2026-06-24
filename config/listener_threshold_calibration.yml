@@ -1,0 +1,20 @@
+# Listener Threshold Calibration
+# ==============================
+# Overrides the default quality thresholds based on structured listening evidence.
+#
+# This file should NOT be edited by hand during normal use.
+# Use threshold_calibrator.py to suggest and apply changes from listening feedback.
+#
+# Confidence levels:
+#   1-2 examples: candidate suggestion only (not applied)
+#   3-5 examples: low confidence calibration
+#   6+ examples:  medium confidence calibration
+#   10+ examples: high confidence calibration
+
+version: 1
+listener_id: default
+playback_context: four_speaker_reference
+
+# Each entry overrides one metric boundary.
+# Leave empty to use system defaults.
+calibrated_thresholds: {}

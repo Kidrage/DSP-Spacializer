@@ -21,6 +21,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import yaml
 
 from dsp_utils import EPS, band_split, db, rms
 from streaming_analyzer import transient_density
@@ -72,7 +73,10 @@ _THRESHOLD_RULES = {
     "phase_correlation_risk_max": ("phase_correlation_risk", "max"),
     "transient_smear_score_max": ("transient_smear_score", "max"),
     "high_harshness_score_max": ("high_harshness_score", "max"),
-    "mono_fold_down_delta_db_abs_max": ("mono_fold_down_delta_db", "abs_max"),
+    # Keep the threshold key for compatibility, but classify the level-normalized
+    # 4-channel fold-down. The legacy 1/4 average is inherently about -6 dB and
+    # must not be interpreted as a phase or level failure.
+    "mono_fold_down_delta_db_abs_max": ("mono_fold_down_delta_db_front_norm", "abs_max"),
     "spatial_excess_score_max": ("spatial_excess_score", "max"),
 }
 
@@ -81,31 +85,104 @@ def _copy_default_thresholds():
     return json.loads(json.dumps(DEFAULT_QUALITY_THRESHOLDS))
 
 
+def _load_yaml_or_json(path):
+    """Load a .yml / .yaml / .json file, returning parsed dict or None."""
+    p = Path(path).expanduser()
+    if not p.exists():
+        return None
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            if p.suffix in (".yml", ".yaml"):
+                return yaml.safe_load(f) or {}
+            return json.load(f)
+    except (json.JSONDecodeError, yaml.YAMLError, OSError):
+        return None
+
+
 def load_quality_thresholds(path=None):
-    """Load quality thresholds, falling back to built-in defaults if needed."""
+    """Load quality thresholds from YAML or JSON, falling back to built-in defaults.
+
+    Resolution order (each layer overrides the previous):
+      1. built-in DEFAULT_QUALITY_THRESHOLDS
+      2. config/quality_thresholds.yml (base config)
+      3. path argument (JSON/YAML override, for backward compat)
+      4. config/listener_threshold_calibration.yml (Phase 5A)
+    """
+    defaults = _copy_default_thresholds()
+
+    # Layer 2: base config YAML
+    config_yml = Path(__file__).resolve().parent / "config" / "quality_thresholds.yml"
+    config_data = _load_yaml_or_json(config_yml)
+    if config_data:
+        defaults = _merge_threshold_dicts(defaults, config_data)
+
+    # Layer 3: explicit path override (backward compat with old JSON arg)
     if path is None:
         path = Path(__file__).with_name("spatial_quality_thresholds.json")
-    else:
-        path = Path(path).expanduser()
+    override_data = _load_yaml_or_json(path)
+    if override_data:
+        defaults = _merge_threshold_dicts(defaults, override_data)
 
-    defaults = _copy_default_thresholds()
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            loaded = json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        return defaults
+    # Layer 4: listener calibration
+    calib_yml = Path(__file__).resolve().parent / "config" / "listener_threshold_calibration.yml"
+    calib_data = _load_yaml_or_json(calib_yml)
+    if calib_data and isinstance(calib_data.get("calibrated_thresholds"), dict):
+        defaults = _apply_calibration_to_thresholds(defaults, calib_data["calibrated_thresholds"])
 
-    if not isinstance(loaded, dict):
-        return defaults
+    return defaults
 
-    merged = defaults
-    if isinstance(loaded.get("global"), dict):
-        merged["global"].update(loaded["global"])
-    if isinstance(loaded.get("presets"), dict):
-        for preset, preset_thresholds in loaded["presets"].items():
-            if isinstance(preset_thresholds, dict):
-                merged["presets"].setdefault(preset, {}).update(preset_thresholds)
+
+def _merge_threshold_dicts(base, override):
+    """Deep-merge override into base. Preset-level keys are merged per-preset."""
+    if not isinstance(override, dict):
+        return base
+    merged = dict(base)
+    if isinstance(override.get("global"), dict):
+        merged.setdefault("global", {}).update(override["global"])
+    if isinstance(override.get("presets"), dict):
+        merged.setdefault("presets", {})
+        for preset, vals in override["presets"].items():
+            if isinstance(vals, dict):
+                merged["presets"].setdefault(preset, {}).update(vals)
     return merged
+
+
+def _apply_calibration_to_thresholds(base, calibration):
+    """Apply listener calibration overrides to the merged threshold dict.
+
+    calibration is a flat dict keyed by metric_name, each value a dict of
+    threshold overrides (e.g. {"harshness_score": {"warning": 0.30, "danger": 0.45}}).
+
+    Mapping from calibration metric names to threshold keys uses a lookup table.
+    """
+    # Mapping: calibration metric_name → (threshold_key_name, boundary_type)
+    _CALIBRATION_MAP = {
+        "harshness_score":           ("high_harshness_score_max", "max"),
+        "vocal_leakage_score":       ("rear_vocal_leakage_score_max", "max"),
+        "lowmid_mud_score":          ("low_mid_mud_score_max", "max"),
+        "phase_risk_score":          ("phase_correlation_risk_max", "max"),
+        "transient_smear_score":     ("transient_smear_score_max", "max"),
+        "bass_retention_score":      ("sub150_retention_score_min", "min"),
+        "spatial_excess_score":      ("spatial_excess_score_max", "max"),
+        "rear_front_db":             ("rear_front_db_max", "max"),
+    }
+
+    for metric_name, overrides in calibration.items():
+        if not isinstance(overrides, dict):
+            continue
+        mapping = _CALIBRATION_MAP.get(metric_name)
+        if mapping is None:
+            continue
+        threshold_key, _boundary = mapping
+
+        # Apply danger threshold (updates global and all preset overrides)
+        danger_val = overrides.get("danger")
+        if danger_val is not None:
+            base.setdefault("global", {})[threshold_key] = float(danger_val)
+            for preset in base.get("presets", {}):
+                if threshold_key in base["presets"][preset]:
+                    base["presets"][preset][threshold_key] = float(danger_val)
+    return base
 
 
 def get_thresholds_for_preset(thresholds, preset_name):
@@ -352,7 +429,7 @@ def compute_quality_metrics(left, right, four_ch, sample_rate, analysis=None):
     mono_front_only_delta_db = db(rms(output_front_only) / (rms(input_mono) + EPS))
     phase_correlation_risk = _clip01(
         0.45 * np.clip((-lr_corr_rear - 0.10) / 0.80, 0.0, 1.0)
-        + 0.35 * np.clip((abs(mono_delta_db) - 1.5) / 5.0, 0.0, 1.0)
+        + 0.35 * np.clip((abs(mono_delta_db_front_norm) - 1.5) / 5.0, 0.0, 1.0)
         + 0.20 * np.clip((0.82 - mono_corr) / 0.60, 0.0, 1.0)
     )
 

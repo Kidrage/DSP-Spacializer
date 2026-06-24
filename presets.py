@@ -130,6 +130,33 @@ AUTO_ACOUSTIC_REAR_ENHANCEMENT_PLAN = {
     "do_not_start_with": ["大幅提高 air_rear", "大幅提高 rear_highmid_gain", "decorrelation 超过 0.55"],
 }
 
+PHASE5A_REAR_CONTENT_CANDIDATE_PLAN = {
+    "name": "phase5a_rear_content_v1",
+    "scope": "Existing center-safe side/ambience buses only; no raw center or vocal send.",
+    "max_offsets": {
+        "side_rear": 0.04,
+        "amb_rear": 0.12,
+        "rear_air_gain": 0.14,
+        "rear_highmid_gain": 0.16,
+        "lowbody_rear": -0.10,
+        "rear_floor_ratio_target": 0.30,
+        "max_rear_makeup": 1.20,
+    },
+}
+
+PHASE5A_V31_CANDIDATE_PLAN = {
+    "name": "phase5a_v31_profiled_rear_content",
+    "max_offsets": {
+        "side_rear": 0.04,
+        "amb_rear": 0.12,
+        "rear_air_gain": 0.14,
+        "rear_highmid_gain": 0.16,
+        "lowbody_rear": -0.10,
+        "rear_floor_ratio_target": 0.30,
+        "max_rear_makeup": 1.20,
+    },
+}
+
 
 def _clamp(x, lo, hi):
     return float(max(lo, min(hi, x)))
@@ -141,6 +168,171 @@ def _norm(x, lo, hi):
 
 def _get(d, key, default=0.0):
     return float(d.get(key, default))
+
+
+def apply_phase5a_rear_content_candidate(preset, auto_info):
+    """Return an isolated Phase 5A.2 rear-content A/B candidate.
+
+    The candidate does not add raw center material. It rebalances the existing
+    side/ambience buses away from low-body dominance and restores some rear
+    high-mid/air definition. Telephone-like sources receive only 35% strength.
+    """
+    values = deepcopy(preset)
+    side_material = _get(auto_info, "side_material")
+    hall_score = _get(auto_info, "hall_score")
+    dry_bass_score = _get(auto_info, "dry_bass_score")
+    vocal_risk = _get(auto_info, "vocal_risk")
+    amount = _clamp(
+        0.60 + 0.25 * side_material + 0.20 * hall_score
+        - 0.20 * dry_bass_score,
+        0.35,
+        1.0,
+    )
+    amount *= 1.0 - 0.35 * _norm(vocal_risk, 0.45, 1.0)
+    if bool(auto_info.get("telephone_risk", False)):
+        amount *= 0.35
+    amount = _clamp(amount, 0.0, 1.0)
+
+    offsets = PHASE5A_REAR_CONTENT_CANDIDATE_PLAN["max_offsets"]
+    parameter_keys = (
+        "side_rear", "amb_rear", "rear_air_gain", "rear_highmid_gain",
+        "lowbody_rear", "rear_floor_ratio", "max_rear_makeup",
+    )
+    before = {key: float(values.get(key, 0.0)) for key in parameter_keys}
+    values["side_rear"] = _clamp(before["side_rear"] + offsets["side_rear"] * amount, 0.56, 1.40)
+    values["amb_rear"] = _clamp(before["amb_rear"] + offsets["amb_rear"] * amount, 0.32, 1.08)
+    values["rear_air_gain"] = _clamp(before["rear_air_gain"] + offsets["rear_air_gain"] * amount, 0.08, 0.58)
+    values["rear_highmid_gain"] = _clamp(before["rear_highmid_gain"] + offsets["rear_highmid_gain"] * amount, 0.18, 0.88)
+    values["lowbody_rear"] = _clamp(before["lowbody_rear"] + offsets["lowbody_rear"] * amount, 0.12, 0.58)
+    floor_target = offsets["rear_floor_ratio_target"]
+    values["rear_floor_ratio"] = _clamp(
+        before["rear_floor_ratio"]
+        + (floor_target - before["rear_floor_ratio"]) * amount,
+        0.075,
+        0.30,
+    )
+    values["max_rear_makeup"] = _clamp(
+        before["max_rear_makeup"] + offsets["max_rear_makeup"] * amount,
+        1.0,
+        8.0,
+    )
+
+    after = {key: float(values[key]) for key in parameter_keys}
+    report = {
+        "enabled": True,
+        "name": PHASE5A_REAR_CONTENT_CANDIDATE_PLAN["name"],
+        "amount": amount,
+        "before": before,
+        "after": after,
+        "applied_offsets": {key: after[key] - before[key] for key in parameter_keys},
+        "center_send_added": False,
+        "telephone_limited": bool(auto_info.get("telephone_risk", False)),
+    }
+    return values, report
+
+
+def classify_phase5a_v31_profile(auto_info, analysis):
+    """Classify one source for the listener-led V3.1 golden candidate."""
+    center = _get(analysis, "center_dominance")
+    diffuse = _get(analysis, "high_diffuse_ratio")
+    transient = _get(analysis, "transient_density")
+    hall = _get(auto_info, "hall_score")
+    side = _get(auto_info, "side_material")
+
+    if hall >= 0.94 and side >= 0.96:
+        return "abstain_low_separability", {
+            "rear_envelopment": 0.0,
+            "rear_highmid_definition": 0.0,
+            "rear_air_definition": 0.0,
+            "lowbody_cleanup": 0.0,
+        }
+    if diffuse < 0.20 and center > 0.62:
+        return "abstain_clean_vocal", {
+            "rear_envelopment": 0.0,
+            "rear_highmid_definition": 0.0,
+            "rear_air_definition": 0.0,
+            "lowbody_cleanup": 0.0,
+        }
+    if diffuse >= 0.44 or hall >= 0.82:
+        return "hall_envelopment_only", {
+            "rear_envelopment": 0.85,
+            "rear_highmid_definition": 0.0,
+            "rear_air_definition": 0.0,
+            "lowbody_cleanup": 0.0,
+        }
+    if center > 0.63 and transient >= 0.07:
+        return "wet_vocal_guard", {
+            "rear_envelopment": 0.45,
+            "rear_highmid_definition": 0.0,
+            "rear_air_definition": 0.15,
+            "lowbody_cleanup": 0.35,
+        }
+    return "spatial_ready", {
+        "rear_envelopment": 1.0,
+        "rear_highmid_definition": 1.0,
+        "rear_air_definition": 1.0,
+        "lowbody_cleanup": 1.0,
+    }
+
+
+def apply_phase5a_v31_candidate(preset, auto_info, analysis):
+    """Apply the profiled V3.1 rear candidate without adding center material."""
+    values = deepcopy(preset)
+    profile, amounts = classify_phase5a_v31_profile(auto_info, analysis)
+    offsets = PHASE5A_V31_CANDIDATE_PLAN["max_offsets"]
+    parameter_keys = (
+        "side_rear", "amb_rear", "rear_air_gain", "rear_highmid_gain",
+        "lowbody_rear", "rear_floor_ratio", "max_rear_makeup",
+    )
+    before = {key: float(values.get(key, 0.0)) for key in parameter_keys}
+    envelopment = amounts["rear_envelopment"]
+
+    values["side_rear"] = _clamp(
+        before["side_rear"] + offsets["side_rear"] * envelopment, 0.56, 1.40,
+    )
+    values["amb_rear"] = _clamp(
+        before["amb_rear"] + offsets["amb_rear"] * envelopment, 0.32, 1.08,
+    )
+    values["rear_highmid_gain"] = _clamp(
+        before["rear_highmid_gain"]
+        + offsets["rear_highmid_gain"] * amounts["rear_highmid_definition"],
+        0.18, 0.88,
+    )
+    values["rear_air_gain"] = _clamp(
+        before["rear_air_gain"]
+        + offsets["rear_air_gain"] * amounts["rear_air_definition"],
+        0.08, 0.58,
+    )
+    values["lowbody_rear"] = _clamp(
+        before["lowbody_rear"]
+        + offsets["lowbody_rear"] * amounts["lowbody_cleanup"],
+        0.12, 0.58,
+    )
+    floor_target = offsets["rear_floor_ratio_target"]
+    values["rear_floor_ratio"] = _clamp(
+        before["rear_floor_ratio"]
+        + (floor_target - before["rear_floor_ratio"]) * envelopment,
+        0.075, 0.30,
+    )
+    values["max_rear_makeup"] = _clamp(
+        before["max_rear_makeup"]
+        + offsets["max_rear_makeup"] * envelopment,
+        1.0, 8.0,
+    )
+
+    after = {key: float(values[key]) for key in parameter_keys}
+    report = {
+        "enabled": True,
+        "name": PHASE5A_V31_CANDIDATE_PLAN["name"],
+        "profile": profile,
+        "amounts": amounts,
+        "before": before,
+        "after": after,
+        "applied_offsets": {key: after[key] - before[key] for key in parameter_keys},
+        "center_send_added": False,
+        "abstained": profile.startswith("abstain_"),
+    }
+    return values, report
 
 
 def normalize_preset_name(name):
