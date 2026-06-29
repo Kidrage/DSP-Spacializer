@@ -31,6 +31,7 @@ from limiter import apply_limiter
 from presets import (
     apply_phase5a_rear_content_candidate,
     apply_phase5a_v31_candidate,
+    apply_phase5a_v32_candidate,
     available_presets,
     resolve_preset,
 )
@@ -117,12 +118,20 @@ def process_file(input_path, output_dir, options):
     )
     rear_content_candidate = {"enabled": False}
     v31_candidate = {"enabled": False}
+    v32_candidate = {"enabled": False}
     if (
         options.get("phase5a_rear_content_candidate", False)
         and preset_mode_used == "auto_acoustic"
     ):
         preset_values, rear_content_candidate = apply_phase5a_rear_content_candidate(
             preset_values, auto_info,
+        )
+    elif (
+        options.get("phase5a_v32_candidate", False)
+        and preset_mode_used == "auto_acoustic"
+    ):
+        preset_values, v32_candidate = apply_phase5a_v32_candidate(
+            preset_values, auto_info, analysis,
         )
     elif (
         options.get("phase5a_v31_candidate", False)
@@ -409,6 +418,7 @@ def process_file(input_path, output_dir, options):
         "gain_staging": gain_staging_report,
         "phase5a_rear_content_candidate": rear_content_candidate,
         "phase5a_v31_candidate": v31_candidate,
+        "phase5a_v32_candidate": v32_candidate,
         "output_paths": output_paths,
         "rear_to_front_rms_ratio": rear_front_ratio,
         "rear_to_front_db": float(db(rear_front_ratio)),
@@ -489,6 +499,7 @@ def build_options(args):
         ),
         "phase5a_rear_content_candidate": args.phase5a_rear_content_candidate,
         "phase5a_v31_candidate": args.phase5a_v31_candidate,
+        "phase5a_v32_candidate": args.phase5a_v32_candidate,
         "export_binaural_front_pair": (
             args.export_binaural_front_pair or cfg.EXPORT_BINAURAL_FRONT_PAIR
         ),
@@ -571,6 +582,10 @@ def main():
         "--phase5a-v31-candidate", action="store_true",
         help="Enable profiled Phase 5A V3.1 golden candidate.",
     )
+    parser.add_argument(
+        "--phase5a-v32-candidate", action="store_true",
+        help="Enable profiled Phase 5A V3.2 body/anchor correction candidate.",
+    )
     parser.add_argument("--export-binaural-front-pair", action="store_true")
     parser.add_argument("--export-binaural-rear-pair", action="store_true")
     parser.add_argument("--export-binaural-ctc-4ch", action="store_true")
@@ -602,8 +617,13 @@ def main():
         help="Refine step size 0.0-1.0 (default from config_center).",
     )
     args = parser.parse_args()
-    if args.phase5a_rear_content_candidate and args.phase5a_v31_candidate:
-        parser.error("V3 and V3.1 candidate switches are mutually exclusive")
+    candidate_switches = [
+        args.phase5a_rear_content_candidate,
+        args.phase5a_v31_candidate,
+        args.phase5a_v32_candidate,
+    ]
+    if sum(bool(switch) for switch in candidate_switches) > 1:
+        parser.error("Phase 5A candidate switches are mutually exclusive")
 
     # ---- resolve files to process ----
     files = resolve_input_files(args)
