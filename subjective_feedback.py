@@ -19,6 +19,10 @@ SCORE_KEYS = {
     "width",
     "mono_safety",
     "overall_preference",
+    "externalization",
+    "distance_naturalness",
+    "front_back_accuracy",
+    "head_motion_stability",
 }
 
 REQUIRED_SCORE_KEYS = {"overall_preference"}

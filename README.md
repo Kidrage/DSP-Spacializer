@@ -2,24 +2,23 @@
 
 ## English
 
-DSP-Spacializer is a stable, non-AI stereo to fixed 4.0 / binaural DSP spatializer. It converts stereo L/R audio into deterministic spatial-function layers and renders them to logical 4.0 output:
+DSP-Spacializer contains a stable, non-AI legacy stereo-to-4.0/binaural DSP renderer and an opt-in Spatial Core V2 object/FOA architecture. Legacy V3.2 remains the default while V2 is evaluated through an explicit listening gate.
 
 ```text
 [LF, RF, LB, RB]
 ```
 
-The main branch is the clean fixed-channel line. It is not a source-separation system, not a pseudo-object scene renderer, not a DBAP/VBAP/hybrid object decoder, and not a built-in listener model.
-Feedback-loop work is kept in separate reviewable tooling so the stable renderer can be rolled back or used unchanged.
+Spatial Core V2 creates static DSP-bus objects plus an AmbiX FOA bed, then renders the same scene to measured-SOFA binaural or FOA/VBAP quad backends. It does not perform AI source separation. See [Spatial Core V2 S1](docs/SPATIAL_CORE_V2.md).
 
 ## 中文
 
-DSP-Spacializer 是一个稳定的、非 AI 分离的 stereo 到固定 4.0 / binaural DSP 空间化原型。它会把 stereo L/R 音频转换为确定性的空间功能层，并渲染到逻辑 4.0 输出：
+DSP-Spacializer 同时包含稳定的 legacy stereo→4.0/binaural DSP 渲染器，以及显式启用的 Spatial Core V2 object/FOA 架构。V3.2 仍是默认基线，V2 需通过听感门槛后才能晋升。
 
 ```text
 [LF, RF, LB, RB]
 ```
 
-`main` 主线保持为干净的固定声道 DSP 路线。它不是源分离系统，不是 pseudo-object 场景渲染器，不是 DBAP/VBAP/hybrid 对象解码器，也不是内置听感学习模型。反馈闭环功能被放在独立、可审查的工具链中，这样稳定渲染器可以随时回滚或保持原样使用。
+Spatial Core V2 把 DSP bus 组织成静态对象与 AmbiX FOA 声床，同一场景可输出真实 SOFA 双耳或 FOA/VBAP 四声道；它不做 AI 源分离。详见 [Spatial Core V2 S1](docs/SPATIAL_CORE_V2.md)。
 
 ---
 
@@ -55,28 +54,25 @@ DSP-Spacializer 是一个稳定的、非 AI 分离的 stereo 到固定 4.0 / bin
 
 - No AI source separation.
 - No clean stem extraction.
-- No pseudo-object scene JSON export.
-- No object-layer audio export.
-- No speaker-layout object decoding.
-- No DBAP, VBAP, or hybrid pseudo-object renderer.
+- No clean musical-stem or AI-object export; V2 exports deterministic DSP-bus objects.
+- No moving objects, HOA, non-omni directivity, or live head tracker in V2.0.
+- No DBAP or hybrid decoder; V2 S1 speaker output is FOA plus 2D VBAP.
 - No automatic modification of core preset code from listener feedback.
 
-Pseudo-object scene/export/DBAP/VBAP/hybrid renderer work has been split into:
-`https://github.com/Kidrage/Pseudo-Object-DSP-Spatializer`.
-See [docs/BRANCH_STRATEGY.md](docs/BRANCH_STRATEGY.md).
+The former Pseudo-Object repository is reference material. This repository is
+the authoritative unified Spatial Core implementation. See
+[docs/BRANCH_STRATEGY.md](docs/BRANCH_STRATEGY.md).
 
 ### 中文
 
 - 不做 AI 源分离。
 - 不做 clean stem 提取。
-- 不导出 pseudo-object scene JSON。
-- 不导出 object-layer audio。
-- 不负责 speaker-layout object decoding。
-- 不内置 DBAP、VBAP 或 hybrid pseudo-object renderer。
+- 不导出 AI/clean musical stems；V2 只导出确定性的 DSP bus objects。
+- V2.0 不支持 moving objects、HOA、非 omni directivity 或实时 head tracker。
+- 不内置 DBAP/hybrid decoder；V2 S1 的扬声器输出为 FOA + 2D VBAP。
 - 不允许根据听感反馈自动改写核心 preset 代码。
 
-pseudo-object scene/export/DBAP/VBAP/hybrid renderer 工作已经拆分到：
-`https://github.com/Kidrage/Pseudo-Object-DSP-Spatializer`。
+原 Pseudo-Object 仓库仅作为参考；本仓库是统一 Spatial Core 的权威实现。
 详见 [docs/BRANCH_STRATEGY.md](docs/BRANCH_STRATEGY.md)。
 
 ---
@@ -84,7 +80,7 @@ pseudo-object scene/export/DBAP/VBAP/hybrid renderer 工作已经拆分到：
 ## Install / 安装
 
 ```bash
-python -m pip install numpy librosa soundfile scipy
+python -m pip install -r requirements.txt
 ```
 
 ---

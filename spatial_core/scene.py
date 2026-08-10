@@ -129,6 +129,18 @@ def _read_audio(path: Path, sample_rate: int, channels: int) -> np.ndarray:
     return audio[:, 0] if channels == 1 else audio
 
 
+def _resolve_audio_path(base: Path, value: object) -> Path:
+    relative = Path(str(value))
+    if not str(value) or relative.is_absolute():
+        raise ValueError("scene audio paths must be non-empty and relative to the manifest")
+    resolved = (base / relative).resolve()
+    try:
+        resolved.relative_to(base)
+    except ValueError as exc:
+        raise ValueError("scene audio path escapes the manifest directory") from exc
+    return resolved
+
+
 def load_scene(manifest_path: str | Path) -> SpatialScene:
     """Load and strictly validate a BDS Spatial Scene V2 manifest."""
 
@@ -137,18 +149,29 @@ def load_scene(manifest_path: str | Path) -> SpatialScene:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"unable to read scene manifest: {path}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("scene manifest must be a JSON object")
     if payload.get("format") != SCENE_FORMAT or payload.get("version") != SCENE_VERSION:
         raise ValueError("scene manifest must use bds_spatial_scene version 2.0")
     sample_rate = int(payload.get("sample_rate", 0))
+    if sample_rate < 8_000 or sample_rate > 384_000:
+        raise ValueError("scene sample_rate must be within [8000, 384000]")
     base = path.parent
     objects: list[SpatialObject] = []
-    for spec in payload.get("objects", []):
+    object_specs = payload.get("objects", [])
+    if not isinstance(object_specs, list):
+        raise ValueError("scene objects must be a list")
+    for spec in object_specs:
+        if not isinstance(spec, dict):
+            raise ValueError("each scene object must be a JSON object")
         position = spec.get("position", {})
+        if not isinstance(position, dict):
+            raise ValueError("object position must be a JSON object")
         objects.append(
             SpatialObject(
                 object_id=str(spec.get("id", "")),
                 role=str(spec.get("role", "object")),
-                audio=_read_audio(base / str(spec.get("audio", "")), sample_rate, 1),
+                audio=_read_audio(_resolve_audio_path(base, spec.get("audio", "")), sample_rate, 1),
                 azimuth_deg=float(position.get("azimuth", 0.0)),
                 elevation_deg=float(position.get("elevation", 0.0)),
                 distance_m=float(position.get("distance", 1.0)),
@@ -164,7 +187,11 @@ def load_scene(manifest_path: str | Path) -> SpatialScene:
     bed_spec = payload.get("foa_bed")
     bed = None
     if bed_spec is not None:
-        bed = FoaBed(_read_audio(base / str(bed_spec.get("audio", "")), sample_rate, 4))
+        if not isinstance(bed_spec, dict):
+            raise ValueError("foa_bed must be a JSON object")
+        bed = FoaBed(
+            _read_audio(_resolve_audio_path(base, bed_spec.get("audio", "")), sample_rate, 4)
+        )
     return SpatialScene(
         sample_rate=sample_rate,
         objects=objects,

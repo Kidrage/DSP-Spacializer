@@ -1,0 +1,10 @@
+{
+  "format": "bds_speaker_layout",
+  "version": "1.0",
+  "speakers": [
+    {"name": "front_left", "azimuth": 30.0},
+    {"name": "front_right", "azimuth": -30.0},
+    {"name": "rear_left", "azimuth": 135.0},
+    {"name": "rear_right", "azimuth": -135.0}
+  ]
+}

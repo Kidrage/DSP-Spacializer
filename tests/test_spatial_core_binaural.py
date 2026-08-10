@@ -7,6 +7,7 @@ import sofar
 from spatial_core import (
     FoaBed,
     ListenerTrajectory,
+    MicroMotion,
     SofaBinauralRenderer,
     SofaHrirDatabase,
     SpatialObject,
@@ -93,7 +94,8 @@ def test_binaural_renderer_renders_objects_foa_and_head_motion(tmp_path):
         block_size=256,
     )
 
-    result = renderer.render(scene)
+    with pytest.warns(RuntimeWarning, match="SOFA directional coverage is sparse"):
+        result = renderer.render(scene)
 
     assert result.audio.shape == (2048, 2)
     assert np.all(np.isfinite(result.audio))
@@ -115,3 +117,15 @@ def test_distance_model_reduces_far_direct_sound(tmp_path):
     )
 
     assert np.linalg.norm(far.audio) < np.linalg.norm(near.audio) * 0.4
+
+
+def test_seeded_micro_motion_is_bounded_and_repeatable():
+    first = MicroMotion(seed=7)
+    second = MicroMotion(seed=7)
+
+    first_angles = np.asarray([first.rotation_at(t).as_euler("zyx", degrees=True) for t in np.arange(0, 8, 0.2)])
+    second_angles = np.asarray([second.rotation_at(t).as_euler("zyx", degrees=True) for t in np.arange(0, 8, 0.2)])
+
+    assert np.allclose(first_angles, second_angles)
+    assert np.max(np.abs(first_angles[:, 0])) <= 5.0
+    assert np.max(np.abs(first_angles[:, 1])) <= 3.0

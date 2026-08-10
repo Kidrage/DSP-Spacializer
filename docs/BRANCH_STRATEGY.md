@@ -1,41 +1,39 @@
 # Branch Strategy
 
+> 2026-08 update: this repository is now the authoritative unified Spatial
+> Core implementation. The Pseudo-Object repository remains reference material
+> and is not a runtime dependency. Legacy V3.2 stays frozen/default while
+> `spatial_core/` is developed and promoted through reviewable feature PRs.
+
 ## `main`
 
-`main` is the stable fixed-channel DSP line:
+`main` contains the stable fixed-channel line and reviewed opt-in Spatial Core:
 
 ```text
-stereo input -> DSP spatial-function layers -> fixed 4.0 renderer -> optional binaural / CTC outputs
+legacy: stereo -> DSP layers -> fixed 4.0 -> optional binaural / CTC
+V2: stereo/scene -> objects + FOA -> SOFA binaural or FOA/VBAP quad
 ```
 
-It should stay clean of pseudo-object scene, object audio, speaker-layout
-decoder, DBAP, VBAP, and hybrid renderer code. Documentation on `main` must
-match that scope.
+Legacy behavior must remain default/frozen until the V2 listening gate passes.
+V2 work belongs in `spatial_core/` behind explicit `--engine spatial-v2`.
 
 ## `Pseudo-Object`
 
-`Pseudo-Object` is now an archival branch in this source repository. The active
-experimental scene/object/layout-decoder line has been split into:
+`Pseudo-Object` is an archival branch. The standalone repository is retained
+as reference material:
 
 ```text
 https://github.com/Kidrage/Pseudo-Object-DSP-Spatializer
 ```
 
-That standalone repository contains pseudo-object scene metadata, object-layer
-audio export, speaker layout descriptors, DBAP/VBAP/hybrid renderers, and
-related tests.
-
-Pseudo objects in that branch are DSP-derived spatial-function objects, not
-clean stems or source-separated instruments.
+It is not a runtime dependency and is no longer the authoritative delivery
+location.
 
 ## Merge Rule
 
-Do not merge `Pseudo-Object` work into `main` unless the change is deliberately
-split and proven to preserve the fixed-channel mainline contract.
-
-New pseudo-object development should happen in
-`Kidrage/Pseudo-Object-DSP-Spatializer`, not on this repository's archival
-`Pseudo-Object` branch.
+Do not merge the archival branch wholesale. Port only deliberately reviewed
+ideas into the unified `spatial_core/` package, with focused tests and no change
+to the default legacy engine.
 
 If `main` needs cleanup, create a fresh branch from the latest `origin/main`
 and remove pseudo-object code there. Avoid merging stale cleanup branches whose

@@ -3,6 +3,7 @@
 from .adapters import CtcOutputAdapter
 from .builder import build_scene
 from .binaural import SofaBinauralRenderer, default_direct_ratio, distance_gain_db
+from .evaluation import evaluate_promotion_gate
 from .foa import decode_foa_projection, encode_mono_foa, foa_direction_vector
 from .hrtf import InterpolatedHrir, SofaHrirDatabase
 from .motion import ListenerPose, ListenerTrajectory, MicroMotion
@@ -31,6 +32,7 @@ __all__ = [
     "default_direct_ratio",
     "distance_gain_db",
     "encode_mono_foa",
+    "evaluate_promotion_gate",
     "foa_direction_vector",
     "load_scene",
     "save_scene",

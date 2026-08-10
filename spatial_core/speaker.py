@@ -77,7 +77,18 @@ class QuadSpeakerRenderer:
             if abs(item.elevation_deg) > 1e-6:
                 elevation_projected.append(item.object_id)
             gain = 10.0 ** ((item.gain_db + distance_gain_db(item.distance_m)) / 20.0)
-            output += item.audio[:, None] * (gain * vbap_gains(item.azimuth_deg, self.layout))[None, :]
+            azimuths = [item.azimuth_deg]
+            if item.size > 1e-6:
+                spread = 30.0 * item.size
+                azimuths.extend([item.azimuth_deg - spread, item.azimuth_deg + spread])
+            ray_gain = 1.0 / np.sqrt(len(azimuths))
+            positional = np.zeros(4, dtype=np.float32)
+            for azimuth in azimuths:
+                positional += ray_gain * vbap_gains(azimuth, self.layout)
+            direct_gain = np.sqrt(max(0.0, 1.0 - item.diffusion))
+            diffuse_gain = np.sqrt(item.diffusion) / 2.0
+            gains = direct_gain * positional + diffuse_gain * np.ones(4, dtype=np.float32)
+            output += item.audio[:, None] * (gain * gains)[None, :]
         if scene.bed is not None:
             directions = [(item.azimuth_deg, 0.0) for item in self.layout]
             output += decode_foa_projection(scene.bed.audio, directions)

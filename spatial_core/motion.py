@@ -57,16 +57,33 @@ class ListenerTrajectory:
 
 class MicroMotion:
     def __init__(self, seed: int = 0):
-        rng = np.random.default_rng(int(seed))
-        self.phases = rng.uniform(0.0, 2.0 * np.pi, size=4)
-        self.rates = rng.uniform(0.07, 0.21, size=4)
+        self._rng = np.random.default_rng(int(seed))
+        self._step_s = 0.25
+        self._times = [0.0]
+        self._yaw = [0.0]
+        self._pitch = [0.0]
+        self._yaw_velocity = 0.0
+        self._pitch_velocity = 0.0
+
+    def _extend_to(self, time_s: float) -> None:
+        while self._times[-1] < time_s + self._step_s:
+            self._yaw_velocity = 0.72 * self._yaw_velocity + 0.28 * self._rng.normal(0.0, 0.65)
+            self._pitch_velocity = 0.72 * self._pitch_velocity + 0.28 * self._rng.normal(0.0, 0.38)
+            yaw = float(np.clip(self._yaw[-1] + self._yaw_velocity, -5.0, 5.0))
+            pitch = float(np.clip(self._pitch[-1] + self._pitch_velocity, -3.0, 3.0))
+            if abs(yaw) >= 5.0:
+                self._yaw_velocity *= -0.5
+            if abs(pitch) >= 3.0:
+                self._pitch_velocity *= -0.5
+            self._times.append(self._times[-1] + self._step_s)
+            self._yaw.append(yaw)
+            self._pitch.append(pitch)
 
     def rotation_at(self, time_s: float) -> Rotation:
-        time = float(time_s)
-        yaw = 2.5 * np.sin(2 * np.pi * self.rates[0] * time + self.phases[0])
-        yaw += 2.5 * np.sin(2 * np.pi * self.rates[1] * time + self.phases[1])
-        pitch = 1.5 * np.sin(2 * np.pi * self.rates[2] * time + self.phases[2])
-        pitch += 1.5 * np.sin(2 * np.pi * self.rates[3] * time + self.phases[3])
+        time = max(0.0, float(time_s))
+        self._extend_to(time)
+        yaw = float(np.interp(time, self._times, self._yaw))
+        pitch = float(np.interp(time, self._times, self._pitch))
         return Rotation.from_euler("zyx", [yaw, pitch, 0.0], degrees=True)
 
 

@@ -91,3 +91,27 @@ def test_scene_manifest_resamples_to_declared_sample_rate(tmp_path):
 
     assert scene.objects[0].audio.shape == (480,)
     assert np.mean(scene.objects[0].audio) == pytest.approx(1.0, abs=0.02)
+
+
+def test_scene_manifest_rejects_audio_paths_outside_manifest_directory(tmp_path):
+    manifest = tmp_path / "scene.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "format": "bds_spatial_scene",
+                "version": "2.0",
+                "sample_rate": 48_000,
+                "objects": [
+                    {
+                        "id": "escape",
+                        "audio": "../outside.wav",
+                        "position": {"distance": 1},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="escapes"):
+        load_scene(manifest)
