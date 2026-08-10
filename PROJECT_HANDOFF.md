@@ -9,12 +9,12 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-10T07:05:16.137920+00:00`
+- Generated at: `2026-08-10T07:29:56.323490+00:00`
 
 ## Current State
 
-- Branch: `feat/spatial-core-v2-s1`
-- HEAD: `77dec30`
+- Branch: `chore/remove-retired-branding`
+- HEAD: `d844183`
 - Indexed paths: 98
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -60,10 +60,10 @@
 
 ### Categories
 
-- code: 62 files, 361901 bytes
-- literature: 24 files, 166942 bytes
+- code: 62 files, 363644 bytes
+- literature: 24 files, 167281 bytes
 - other: 3 files, 81607 bytes
-- structured_data: 9 files, 6686 bytes
+- structured_data: 9 files, 6704 bytes
 
 ### Common Extensions
 
@@ -89,6 +89,10 @@
 
 ## Change History
 
+- `d844183 2026-08-10 test: block retired identifiers in every file type`
+- `8fb191c 2026-08-10 refactor: remove retired company identifiers`
+- `4cf12cc 2026-08-10 Merge pull request #4 from Kidrage/feat/spatial-core-v2-s1`
+- `954ffa0 2026-08-10 docs: refresh Spatial Core handoff`
 - `77dec30 2026-08-10 fix: tighten Spatial Core V2 rendering contracts`
 - `8a95fc0 2026-08-10 feat: expose opt-in Spatial Core V2 workflow`
 - `dc11cff 2026-08-10 feat: add SOFA binaural and quad speaker renderers`
@@ -105,15 +109,10 @@
 - `dc16e88 2026-06-18 feat(feedback): suggest tuning profiles from evaluation records`
 - `d76b53f 2026-06-18 docs(feedback): document DSP feedback loop`
 - `13b9f28 2026-06-18 test(feedback): cover subjective evaluation records`
-- `c57ca15 2026-06-18 test(feedback): cover tuning profile overlay`
-- `8eda176 2026-06-18 feat(feedback): add feedback render entrypoint`
-- `839c8a1 2026-06-18 docs(feedback): add subjective score example`
-- `9e8ffb0 2026-06-18 docs(feedback): add example tuning profile`
 
 ## Current Changes
 
-- `## feat/spatial-core-v2-s1`
-- ` M PROJECT_HANDOFF.md`
+- `## chore/remove-retired-branding`
 
 ## Related Repositories
 
