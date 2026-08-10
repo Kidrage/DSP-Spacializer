@@ -82,6 +82,11 @@ class SofaHrirDatabase:
         rounded = np.round(directions, decimals=6)
         if np.unique(rounded, axis=0).shape[0] < 3:
             raise ValueError("SOFA file must contain at least three unique source directions")
+        basis = np.stack(
+            [foa_direction_vector(azimuth, elevation) for azimuth, elevation in directions]
+        )
+        if np.linalg.matrix_rank(basis) < 4:
+            raise ValueError("SOFA source directions must span the rank-4 first-order basis")
         source_rate = int(np.asarray(sofa.Data_SamplingRate).reshape(-1)[0])
         delays = _expand_delays(sofa, ir.shape[0], 2, source_rate)
         target_rate = int(sample_rate)
@@ -95,6 +100,11 @@ class SofaHrirDatabase:
         self.delays = np.asarray(delays, dtype=np.float32)
         self.directions = directions
         self.vectors = _unit_vectors(directions[:, 0], directions[:, 1])
+        front_index = int(np.argmin(self.angular_errors(0.0, 0.0)))
+        front_energy = float(np.sqrt(np.mean(np.sum(self.ir[front_index] ** 2, axis=-1))))
+        if not np.isfinite(front_energy) or front_energy <= 1e-9:
+            raise ValueError("SOFA front-reference HRIR has no usable energy")
+        self.front_reference_gain = 1.0 / front_energy
 
     def angular_errors(self, azimuth_deg: float, elevation_deg: float) -> np.ndarray:
         target = _unit_vectors(np.asarray([azimuth_deg]), np.asarray([elevation_deg]))[0]

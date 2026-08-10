@@ -153,6 +153,8 @@ def load_scene(manifest_path: str | Path) -> SpatialScene:
         raise ValueError("scene manifest must be a JSON object")
     if payload.get("format") != SCENE_FORMAT or payload.get("version") != SCENE_VERSION:
         raise ValueError("scene manifest must use bds_spatial_scene version 2.0")
+    if payload.get("foa_convention") != FOA_CONVENTION:
+        raise ValueError(f"scene foa_convention must be '{FOA_CONVENTION}'")
     sample_rate = int(payload.get("sample_rate", 0))
     if sample_rate < 8_000 or sample_rate > 384_000:
         raise ValueError("scene sample_rate must be within [8000, 384000]")
@@ -189,6 +191,8 @@ def load_scene(manifest_path: str | Path) -> SpatialScene:
     if bed_spec is not None:
         if not isinstance(bed_spec, dict):
             raise ValueError("foa_bed must be a JSON object")
+        if bed_spec.get("channel_order") != "W,Y,Z,X" or bed_spec.get("normalization") != "SN3D":
+            raise ValueError("foa_bed must declare channel_order W,Y,Z,X and normalization SN3D")
         bed = FoaBed(
             _read_audio(_resolve_audio_path(base, bed_spec.get("audio", "")), sample_rate, 4)
         )

@@ -37,7 +37,6 @@ def build_scene(
     buses = extract_layers(audio[:, 0], audio[:, 1], int(sample_rate))
     objects = [
         SpatialObject("bass", "bass", buses["bass"], 0.0, 0.0, 1.0, size=0.25),
-        SpatialObject("low_body", "front", buses["low_body"], 0.0, 0.0, 1.0, size=0.35),
         SpatialObject("front_L", "front", buses["front_L"], 30.0, 0.0, 1.2, size=0.15),
         SpatialObject("front_R", "front", buses["front_R"], -30.0, 0.0, 1.2, size=0.15),
     ]

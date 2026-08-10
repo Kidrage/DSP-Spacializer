@@ -29,15 +29,14 @@ def default_direct_ratio(distance_m: float) -> float:
     return float(1.0 / (1.0 + (float(distance_m) / 2.0) ** 2))
 
 
-def _air_absorption(audio: np.ndarray, sample_rate: int, distance_m: float) -> np.ndarray:
+def apply_air_absorption(audio: np.ndarray, sample_rate: int, distance_m: float) -> np.ndarray:
     attenuation_db = -0.5 * max(0.0, float(distance_m) - 1.0)
     if attenuation_db == 0.0 or audio.size == 0:
         return np.asarray(audio, dtype=np.float32)
     spectrum = np.fft.rfft(np.asarray(audio, dtype=np.float64))
     frequencies = np.fft.rfftfreq(audio.size, 1.0 / sample_rate)
-    blend = np.clip((frequencies - 4_000.0) / 4_000.0, 0.0, 1.0)
     high_gain = 10.0 ** (attenuation_db / 20.0)
-    spectrum *= 1.0 + blend * (high_gain - 1.0)
+    spectrum[frequencies >= 6_000.0] *= high_gain
     return np.asarray(np.fft.irfft(spectrum, n=audio.size), dtype=np.float32)
 
 
@@ -88,14 +87,14 @@ def _late_reverb_foa(audio: np.ndarray, sample_rate: int) -> np.ndarray:
     time = np.arange(length, dtype=np.float64) / sample_rate
     envelope = 10.0 ** (-3.0 * time / 0.30)
     rng = np.random.default_rng(32)
-    output = np.zeros((audio.size, 4), dtype=np.float32)
+    output = np.zeros((audio.size + length - 1, 4), dtype=np.float32)
     for channel in range(4):
         kernel = rng.standard_normal(length) * envelope
         kernel[: min(start, length)] = 0.0
         norm = np.linalg.norm(kernel)
         if norm > 0:
             kernel *= 0.08 / norm
-        output[:, channel] = fftconvolve(audio, kernel, mode="full")[: audio.size]
+        output[:, channel] = fftconvolve(audio, kernel, mode="full")
     return output
 
 
@@ -150,7 +149,7 @@ class SofaBinauralRenderer:
     ) -> tuple[np.ndarray, float]:
         azimuth, elevation = relative_direction(azimuth_deg, elevation_deg, rotation)
         hrir = database.interpolate(azimuth, elevation)
-        return _apply_hrir(signal, hrir), hrir.nearest_error_deg
+        return database.front_reference_gain * _apply_hrir(signal, hrir), hrir.nearest_error_deg
 
     def _render_foa(
         self,
@@ -159,7 +158,7 @@ class SofaBinauralRenderer:
         output: np.ndarray,
         sample_rate: int,
     ) -> None:
-        filters = database.foa_to_ear_filters()
+        filters = database.front_reference_gain * database.foa_to_ear_filters()
         for start in range(0, foa.shape[0], self.block_size):
             block = foa[start : start + self.block_size]
             time_s = (start + 0.5 * block.shape[0]) / sample_rate
@@ -174,12 +173,14 @@ class SofaBinauralRenderer:
 
     def render(self, scene: SpatialScene) -> RenderResult:
         database = self._database(scene.sample_rate)
-        output = np.zeros((scene.num_frames, 2), dtype=np.float32)
+        hrir_tail = database.ir.shape[-1] + int(np.ceil(np.max(database.delays))) + 1
+        room_tail = int(round(0.50 * scene.sample_rate)) if self.room_enabled else 0
+        output = np.zeros((scene.num_frames + hrir_tail + room_tail, 2), dtype=np.float32)
         diffuse_foa = np.zeros((scene.num_frames, 4), dtype=np.float32)
         late_send = np.zeros(scene.num_frames, dtype=np.float32)
         max_coverage_error = 0.0
         for item in scene.objects:
-            signal = _air_absorption(item.audio, scene.sample_rate, item.distance_m)
+            signal = apply_air_absorption(item.audio, scene.sample_rate, item.distance_m)
             signal *= 10.0 ** ((item.gain_db + distance_gain_db(item.distance_m)) / 20.0)
             direct_ratio = item.direct_ratio
             if direct_ratio is None:
@@ -216,17 +217,24 @@ class SofaBinauralRenderer:
                         delay = int(round(float(delay_ms) * scene.sample_rate / 1000.0))
                         gain = room_gain * 10.0 ** (float(level_db) / 20.0)
                         self._add(output, reflected, start + delay, gain)
-            if diffuse_gain > 0.0 or room_gain > 0.0:
-                send = signal * (diffuse_gain + 0.22 * room_gain)
-                diffuse_foa += encode_mono_foa(send, item.azimuth_deg + 90.0, 20.0, 0.35)
+            if diffuse_gain > 0.0:
+                send = signal * diffuse_gain
+                # Each SN3D direction has basis energy 2. Two decorrelated
+                # sends at gain .5 retain unit total power.
+                diffuse_foa += encode_mono_foa(send, item.azimuth_deg + 90.0, 20.0, 0.5)
                 delayed = np.pad(send[:-17] if send.size > 17 else np.zeros(0), (17, 0))
-                diffuse_foa += encode_mono_foa(delayed, item.azimuth_deg - 115.0, -12.0, 0.25)
+                diffuse_foa += encode_mono_foa(delayed, item.azimuth_deg - 115.0, -12.0, 0.5)
             if room_gain > 0.0:
                 late_send += room_gain * signal
         if np.any(late_send):
-            diffuse_foa += _late_reverb_foa(late_send, scene.sample_rate)
+            late_field = _late_reverb_foa(late_send, scene.sample_rate)
+            diffuse_foa = np.pad(
+                diffuse_foa,
+                ((0, late_field.shape[0] - diffuse_foa.shape[0]), (0, 0)),
+            )
+            diffuse_foa += late_field
         if scene.bed is not None:
-            diffuse_foa += scene.bed.audio
+            diffuse_foa[: scene.num_frames] += scene.bed.audio
         if np.any(diffuse_foa):
             self._render_foa(database, diffuse_foa, output, scene.sample_rate)
         limited, limiter_gain = linked_peak_limit(output)
@@ -242,6 +250,7 @@ class SofaBinauralRenderer:
                 else None
             ),
             "max_sofa_coverage_error_deg": max_coverage_error,
+            "sofa_front_reference_gain": database.front_reference_gain,
             "limiter_gain": limiter_gain,
             "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
         }

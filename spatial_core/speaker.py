@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .binaural import distance_gain_db
+from .binaural import apply_air_absorption, distance_gain_db
 from .foa import decode_foa_projection
 from .rendering import RenderResult, linked_peak_limit
 from .scene import SpatialScene
@@ -88,7 +88,8 @@ class QuadSpeakerRenderer:
             direct_gain = np.sqrt(max(0.0, 1.0 - item.diffusion))
             diffuse_gain = np.sqrt(item.diffusion) / 2.0
             gains = direct_gain * positional + diffuse_gain * np.ones(4, dtype=np.float32)
-            output += item.audio[:, None] * (gain * gains)[None, :]
+            filtered = apply_air_absorption(item.audio, scene.sample_rate, item.distance_m)
+            output += filtered[:, None] * (gain * gains)[None, :]
         if scene.bed is not None:
             directions = [(item.azimuth_deg, 0.0) for item in self.layout]
             output += decode_foa_projection(scene.bed.audio, directions)

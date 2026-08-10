@@ -21,8 +21,9 @@ DSP bus objects + AmbiX FOA bed
 - Binaural rendering requires a real `SimpleFreeFieldHRIR` SOFA file. Missing,
   malformed, two-receiver-incompatible, or badly uncovered data fails loudly.
 - No HRTF data is bundled and there is no procedural HRTF fallback.
-- Distance is bounded to 0.1–10 m and controls gain, air absorption, DRR, early
-  reflections, and the late field.
+- Distance is bounded to 0.1–10 m. Both backends apply gain and air absorption;
+  the binaural backend additionally applies DRR, early reflections, and the
+  late field.
 - Object size spreads an L2-normalized ray set. Diffusion uses an equal-power
   positional/diffuse split.
 - Speaker elevation is projected to the horizontal 4.0 layout and reported.
@@ -117,7 +118,8 @@ time keyframes. Yaw/pitch/roll are interpolated with SLERP and endpoints hold.
 
 ## Promotion gate
 
-Legacy remains default until at least three paired tracks meet all criteria:
+Legacy remains default until at least three uniquely identified paired tracks
+meet all criteria:
 
 - mean externalization improvement ≥ 0.5;
 - mean depth improvement ≥ 0.5;

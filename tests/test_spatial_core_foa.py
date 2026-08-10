@@ -25,7 +25,7 @@ def test_default_builder_creates_direct_objects_and_foa_bed():
     scene = build_scene(stereo, sample_rate=48_000)
 
     positions = {item.object_id: item.azimuth_deg for item in scene.objects}
-    assert positions == {"bass": 0.0, "low_body": 0.0, "front_L": 30.0, "front_R": -30.0}
+    assert positions == {"bass": 0.0, "front_L": 30.0, "front_R": -30.0}
     assert scene.bed is not None
     assert scene.bed.audio.shape == (frames, 4)
     assert scene.metadata["source"] == "dsp_bus_builder"

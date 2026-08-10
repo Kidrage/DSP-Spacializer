@@ -52,14 +52,22 @@ def test_sofa_exact_match_preserves_measured_hrir(tmp_path):
     assert np.array_equal(result.ir, source.Data_IR[2])
     assert np.array_equal(result.delay_samples, [0, 0])
     assert result.nearest_error_deg == pytest.approx(0.0)
+    assert database.front_reference_gain == pytest.approx(1.0)
 
 
 def test_sofa_rejects_directions_outside_coverage(tmp_path):
-    _write_test_sofa(tmp_path / "front-only.sofa", [(0, 0), (10, 0), (-10, 0)])
+    _write_test_sofa(tmp_path / "front-only.sofa", [(0, 0), (10, 0), (-10, 0), (0, 10)])
     database = SofaHrirDatabase(tmp_path / "front-only.sofa", 48_000)
 
     with pytest.raises(ValueError, match="outside SOFA coverage"):
         database.interpolate(180, 0)
+
+
+def test_sofa_rejects_directions_that_cannot_decode_foa(tmp_path):
+    _write_test_sofa(tmp_path / "horizontal.sofa", [(0, 0), (90, 0), (180, 0), (-90, 0)])
+
+    with pytest.raises(ValueError, match="rank-4"):
+        SofaHrirDatabase(tmp_path / "horizontal.sofa", 48_000)
 
 
 def test_binaural_renderer_renders_objects_foa_and_head_motion(tmp_path):
@@ -97,7 +105,8 @@ def test_binaural_renderer_renders_objects_foa_and_head_motion(tmp_path):
     with pytest.warns(RuntimeWarning, match="SOFA directional coverage is sparse"):
         result = renderer.render(scene)
 
-    assert result.audio.shape == (2048, 2)
+    assert result.audio.shape[0] > 2048
+    assert result.audio.shape[1] == 2
     assert np.all(np.isfinite(result.audio))
     assert np.max(np.abs(result.audio)) > 0
     assert result.diagnostics["engine"] == "spatial-v2-sofa"
@@ -117,6 +126,19 @@ def test_distance_model_reduces_far_direct_sound(tmp_path):
     )
 
     assert np.linalg.norm(far.audio) < np.linalg.norm(near.audio) * 0.4
+
+
+def test_room_renderer_preserves_late_tail(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    signal = np.zeros(256, dtype=np.float32)
+    signal[-1] = 0.1
+    scene = SpatialScene(48_000, [SpatialObject("ending", "front", signal, 0, 0, 2)])
+
+    with pytest.warns(RuntimeWarning, match="SOFA directional coverage is sparse"):
+        result = SofaBinauralRenderer(tmp_path / "test.sofa", room_enabled=True).render(scene)
+
+    assert result.audio.shape[0] >= 256 + int(0.5 * 48_000)
+    assert np.max(np.abs(result.audio[256:])) > 0
 
 
 def test_seeded_micro_motion_is_bounded_and_repeatable():

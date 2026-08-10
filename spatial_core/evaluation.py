@@ -17,11 +17,21 @@ TIMBRE_UTILITY_DIRECTIONS = {
 def evaluate_promotion_gate(records: Sequence[Mapping[str, object]]) -> dict[str, object]:
     """Evaluate the S1 listening gate across paired legacy/V2 score records."""
 
-    if len(records) < 3:
+    track_ids: list[str] = []
+    for record in records:
+        identifier = record.get("track_id", record.get("song_id", record.get("input")))
+        if identifier is None or not str(identifier).strip():
+            raise ValueError("each promotion record requires track_id, song_id, or input")
+        track_ids.append(str(identifier))
+    unique_track_count = len(set(track_ids))
+    if unique_track_count != len(track_ids):
+        raise ValueError("promotion records must contain one paired record per unique track")
+    if unique_track_count < 3:
         return {
             "promote": False,
-            "track_count": len(records),
-            "reason": "at least three paired tracks are required",
+            "track_count": unique_track_count,
+            "record_count": len(records),
+            "reason": "at least three unique paired tracks are required",
         }
     externalization_deltas: list[float] = []
     depth_deltas: list[float] = []
@@ -46,7 +56,8 @@ def evaluate_promotion_gate(records: Sequence[Mapping[str, object]]) -> dict[str
     )
     return {
         "promote": promote,
-        "track_count": len(records),
+        "track_count": unique_track_count,
+        "record_count": len(records),
         "mean_externalization_delta": externalization_delta,
         "mean_depth_delta": depth_delta,
         "worst_timbre_regression": worst_timbre_regression,

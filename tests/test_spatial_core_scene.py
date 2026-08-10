@@ -48,6 +48,7 @@ def test_scene_manifest_rejects_missing_audio(tmp_path):
                 "format": "bds_spatial_scene",
                 "version": "2.0",
                 "sample_rate": 48_000,
+                "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
                 "objects": [
                     {
                         "id": "missing",
@@ -74,6 +75,7 @@ def test_scene_manifest_resamples_to_declared_sample_rate(tmp_path):
                 "format": "bds_spatial_scene",
                 "version": "2.0",
                 "sample_rate": 48_000,
+                "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
                 "objects": [
                     {
                         "id": "lead",
@@ -101,6 +103,7 @@ def test_scene_manifest_rejects_audio_paths_outside_manifest_directory(tmp_path)
                 "format": "bds_spatial_scene",
                 "version": "2.0",
                 "sample_rate": 48_000,
+                "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
                 "objects": [
                     {
                         "id": "escape",
@@ -114,4 +117,23 @@ def test_scene_manifest_rejects_audio_paths_outside_manifest_directory(tmp_path)
     )
 
     with pytest.raises(ValueError, match="escapes"):
+        load_scene(manifest)
+
+
+def test_scene_manifest_rejects_wrong_foa_declaration(tmp_path):
+    manifest = tmp_path / "scene.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "format": "bds_spatial_scene",
+                "version": "2.0",
+                "sample_rate": 48_000,
+                "foa_convention": "FuMa",
+                "objects": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="foa_convention"):
         load_scene(manifest)
