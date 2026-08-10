@@ -4,3 +4,5 @@ soundfile>=0.12
 librosa>=0.10
 PyYAML>=6.0
 pytest>=7.0
+netCDF4>=1.6,<1.7.3
+sofar>=1.2,<2
