@@ -7,7 +7,7 @@
 
 ## Spatial Core V2 S1
 
-- Public `bds_spatial_scene` 2.0 JSON plus external mono/FOA WAV assets.
+- Public `spatial_core_scene` 2.0 JSON plus external mono/FOA WAV assets.
 - Existing DSP buses become static omni objects and an AmbiX ACN/SN3D FOA bed.
 - Strict measured-SOFA binaural with delay-aware 3-neighbor interpolation.
 - Distance/DRR, fixed early reflections, small/dry late FOA field, SLERP head trajectory, optional seeded micro-motion.

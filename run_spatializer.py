@@ -558,7 +558,9 @@ def main():
         help="Rendering architecture (default: frozen legacy V3.2)",
     )
     parser.add_argument("--sofa", default=None, help="SimpleFreeFieldHRIR SOFA file for Spatial V2")
-    parser.add_argument("--scene-manifest", default=None, help="BDS Spatial Scene V2 JSON manifest")
+    parser.add_argument(
+        "--scene-manifest", default=None, help="Spatial Core V2 JSON manifest"
+    )
     parser.add_argument("--export-scene", default=None, help="Export the generated V2 scene JSON and WAV assets")
     parser.add_argument("--listener-trajectory", default=None, help="Listener trajectory JSON for dynamic HRTF")
     parser.add_argument("--micro-motion", action="store_true", help="Enable deterministic simulated head micro-motion")
@@ -567,7 +569,9 @@ def main():
         "--room-profile", choices=["small-dry", "off"], default="small-dry",
         help="Spatial V2 early/late room profile",
     )
-    parser.add_argument("--speaker-layout", default=None, help="BDS four-speaker layout JSON")
+    parser.add_argument(
+        "--speaker-layout", default=None, help="Spatial Core four-speaker layout JSON"
+    )
     parser.add_argument("--out-dir", default=str(cfg.OUTPUT_DIR), help="Output directory")
     parser.add_argument(
         "--preset", default=None,

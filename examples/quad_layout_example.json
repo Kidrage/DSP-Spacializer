@@ -1,5 +1,5 @@
 {
-  "format": "bds_speaker_layout",
+  "format": "spatial_core_speaker_layout",
   "version": "1.0",
   "speakers": [
     {"name": "front_left", "azimuth": 30.0},

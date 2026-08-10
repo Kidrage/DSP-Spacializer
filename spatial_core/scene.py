@@ -13,7 +13,7 @@ from scipy.signal import resample_poly
 import soundfile as sf
 
 
-SCENE_FORMAT = "bds_spatial_scene"
+SCENE_FORMAT = "spatial_core_scene"
 SCENE_VERSION = "2.0"
 FOA_CONVENTION = "AmbiX ACN/SN3D (W,Y,Z,X)"
 
@@ -142,7 +142,7 @@ def _resolve_audio_path(base: Path, value: object) -> Path:
 
 
 def load_scene(manifest_path: str | Path) -> SpatialScene:
-    """Load and strictly validate a BDS Spatial Scene V2 manifest."""
+    """Load and strictly validate a Spatial Core V2 manifest."""
 
     path = Path(manifest_path).expanduser().resolve()
     try:
@@ -152,7 +152,7 @@ def load_scene(manifest_path: str | Path) -> SpatialScene:
     if not isinstance(payload, dict):
         raise ValueError("scene manifest must be a JSON object")
     if payload.get("format") != SCENE_FORMAT or payload.get("version") != SCENE_VERSION:
-        raise ValueError("scene manifest must use bds_spatial_scene version 2.0")
+        raise ValueError("scene manifest must use spatial_core_scene version 2.0")
     if payload.get("foa_convention") != FOA_CONVENTION:
         raise ValueError(f"scene foa_convention must be '{FOA_CONVENTION}'")
     sample_rate = int(payload.get("sample_rate", 0))

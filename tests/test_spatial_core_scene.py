@@ -35,7 +35,7 @@ def test_scene_manifest_round_trip_resamples_and_pads_audio(tmp_path):
     assert loaded.bed.audio.shape == (480, 4)
 
     payload = json.loads(manifest.read_text(encoding="utf-8"))
-    assert payload["format"] == "bds_spatial_scene"
+    assert payload["format"] == "spatial_core_scene"
     assert payload["version"] == "2.0"
     assert payload["foa_convention"] == "AmbiX ACN/SN3D (W,Y,Z,X)"
 
@@ -45,7 +45,7 @@ def test_scene_manifest_rejects_missing_audio(tmp_path):
     manifest.write_text(
         json.dumps(
             {
-                "format": "bds_spatial_scene",
+                "format": "spatial_core_scene",
                 "version": "2.0",
                 "sample_rate": 48_000,
                 "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
@@ -72,7 +72,7 @@ def test_scene_manifest_resamples_to_declared_sample_rate(tmp_path):
     manifest.write_text(
         json.dumps(
             {
-                "format": "bds_spatial_scene",
+                "format": "spatial_core_scene",
                 "version": "2.0",
                 "sample_rate": 48_000,
                 "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
@@ -100,7 +100,7 @@ def test_scene_manifest_rejects_audio_paths_outside_manifest_directory(tmp_path)
     manifest.write_text(
         json.dumps(
             {
-                "format": "bds_spatial_scene",
+                "format": "spatial_core_scene",
                 "version": "2.0",
                 "sample_rate": 48_000,
                 "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
@@ -125,7 +125,7 @@ def test_scene_manifest_rejects_wrong_foa_declaration(tmp_path):
     manifest.write_text(
         json.dumps(
             {
-                "format": "bds_spatial_scene",
+                "format": "spatial_core_scene",
                 "version": "2.0",
                 "sample_rate": 48_000,
                 "foa_convention": "FuMa",

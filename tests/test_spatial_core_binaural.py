@@ -85,7 +85,7 @@ def test_binaural_renderer_renders_objects_foa_and_head_motion(tmp_path):
     trajectory_path.write_text(
         json.dumps(
             {
-                "format": "bds_listener_trajectory",
+                "format": "spatial_core_listener_trajectory",
                 "version": "1.0",
                 "keyframes": [
                     {"time": 0.0, "yaw": 0, "pitch": 0, "roll": 0},

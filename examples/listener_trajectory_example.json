@@ -1,5 +1,5 @@
 {
-  "format": "bds_listener_trajectory",
+  "format": "spatial_core_listener_trajectory",
   "version": "1.0",
   "keyframes": [
     {"time": 0.0, "yaw": 0.0, "pitch": 0.0, "roll": 0.0},
