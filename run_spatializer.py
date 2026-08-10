@@ -46,6 +46,7 @@ from spatial_safety import (
 )
 from spatial_quality_report import write_manifest_report
 from streaming_analyzer import analyze_audio
+from spatial_core.workflow import render_spatial_v2
 
 
 # ---------------------------------------------------------------------------
@@ -552,6 +553,21 @@ def main():
         "input_file", nargs="?",
         help="Optional single input file. If omitted, use config_center.py settings.",
     )
+    parser.add_argument(
+        "--engine", choices=["legacy", "spatial-v2"], default="legacy",
+        help="Rendering architecture (default: frozen legacy V3.2)",
+    )
+    parser.add_argument("--sofa", default=None, help="SimpleFreeFieldHRIR SOFA file for Spatial V2")
+    parser.add_argument("--scene-manifest", default=None, help="BDS Spatial Scene V2 JSON manifest")
+    parser.add_argument("--export-scene", default=None, help="Export the generated V2 scene JSON and WAV assets")
+    parser.add_argument("--listener-trajectory", default=None, help="Listener trajectory JSON for dynamic HRTF")
+    parser.add_argument("--micro-motion", action="store_true", help="Enable deterministic simulated head micro-motion")
+    parser.add_argument("--motion-seed", type=int, default=0, help="Micro-motion random seed")
+    parser.add_argument(
+        "--room-profile", choices=["small-dry", "off"], default="small-dry",
+        help="Spatial V2 early/late room profile",
+    )
+    parser.add_argument("--speaker-layout", default=None, help="BDS four-speaker layout JSON")
     parser.add_argument("--out-dir", default=str(cfg.OUTPUT_DIR), help="Output directory")
     parser.add_argument(
         "--preset", default=None,
@@ -617,6 +633,40 @@ def main():
         help="Refine step size 0.0-1.0 (default from config_center).",
     )
     args = parser.parse_args()
+    if args.engine == "spatial-v2":
+        if args.input_file and args.scene_manifest:
+            parser.error("stereo input and --scene-manifest are mutually exclusive")
+        if not args.input_file and not args.scene_manifest:
+            parser.error("Spatial Core V2 requires a stereo input or --scene-manifest")
+        output_mode = args.output_mode or "binaural"
+        try:
+            record = render_spatial_v2(
+                input_path=args.input_file,
+                scene_manifest=args.scene_manifest,
+                output_dir=args.out_dir,
+                output_mode=output_mode,
+                target_sample_rate=args.target_sr or cfg.TARGET_SR,
+                sofa_path=args.sofa,
+                export_scene_path=args.export_scene,
+                listener_trajectory_path=args.listener_trajectory,
+                micro_motion=args.micro_motion,
+                motion_seed=args.motion_seed,
+                room_profile=args.room_profile,
+                speaker_layout_path=args.speaker_layout,
+                export_ctc=args.export_binaural_ctc_4ch,
+                ctc_options={
+                    "regularization": args.ctc_regularization or cfg.CTC_REGULARIZATION,
+                    "ir_length_samples": args.ctc_ir_length_samples or cfg.CTC_IR_LENGTH_SAMPLES,
+                    "peak_target": cfg.CTC_PEAK_TARGET,
+                },
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+        out_dir = Path(args.out_dir).expanduser()
+        manifest_path = out_dir / "spatial_v2_manifest.json"
+        manifest_path.write_text(json.dumps([record], indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"Spatial Core V2 manifest: {manifest_path}")
+        return
     candidate_switches = [
         args.phase5a_rear_content_candidate,
         args.phase5a_v31_candidate,

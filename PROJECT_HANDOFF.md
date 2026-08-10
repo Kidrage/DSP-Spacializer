@@ -9,13 +9,13 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-10T06:33:02.943802+00:00`
+- Generated at: `2026-08-10T07:05:16.137920+00:00`
 
 ## Current State
 
-- Branch: `feat/dsp-feedback-loop-s1`
-- HEAD: `647e724`
-- Indexed paths: 76
+- Branch: `feat/spatial-core-v2-s1`
+- HEAD: `77dec30`
+- Indexed paths: 98
 - Inventory truncated: `false`
 - Inaccessible paths: 0
 - Scan mode: complete path/metadata inventory; no bulk content read; no symlink traversal.
@@ -44,14 +44,15 @@
 | Route | Files |
 |---|---:|
 | `.` | 45 |
-| `tests` | 13 |
+| `tests` | 19 |
+| `spatial_core` | 12 |
+| `.codex` | 4 |
 | `config` | 4 |
+| `docs` | 4 |
 | `scripts` | 4 |
-| `.codex` | 3 |
-| `docs` | 3 |
+| `examples` | 3 |
 | `.github` | 1 |
 | `.github/workflows` | 1 |
-| `examples` | 1 |
 | `input_audio` | 1 |
 | `profiles` | 1 |
 
@@ -59,18 +60,18 @@
 
 ### Categories
 
-- code: 44 files, 286601 bytes
-- literature: 22 files, 159841 bytes
+- code: 62 files, 361901 bytes
+- literature: 24 files, 166942 bytes
 - other: 3 files, 81607 bytes
-- structured_data: 7 files, 6164 bytes
+- structured_data: 9 files, 6686 bytes
 
 ### Common Extensions
 
-- `.py`: 44
-- `.md`: 19
+- `.py`: 62
+- `.md`: 21
+- `.json`: 5
 - `.yml`: 4
 - `.txt`: 3
-- `.json`: 3
 - `[no extension]`: 2
 - `.ipynb`: 1
 
@@ -88,6 +89,12 @@
 
 ## Change History
 
+- `77dec30 2026-08-10 fix: tighten Spatial Core V2 rendering contracts`
+- `8a95fc0 2026-08-10 feat: expose opt-in Spatial Core V2 workflow`
+- `dc11cff 2026-08-10 feat: add SOFA binaural and quad speaker renderers`
+- `0aca659 2026-08-10 feat: add Spatial Core V2 scene format and FOA builder`
+- `0701a0a 2026-08-10 Merge pull request #3 from Kidrage/feat/dsp-feedback-loop-s1`
+- `071435b 2026-08-10 chore: add repository onboarding and CI`
 - `647e724 2026-06-29 Freeze Phase 5A V3.2 stable baseline`
 - `1fd9d4c 2026-06-24 implement Phase 5A listening candidates and calibration`
 - `65d65d5 2026-06-18 docs: update README with bilingual feedback loop guide`
@@ -102,20 +109,11 @@
 - `8eda176 2026-06-18 feat(feedback): add feedback render entrypoint`
 - `839c8a1 2026-06-18 docs(feedback): add subjective score example`
 - `9e8ffb0 2026-06-18 docs(feedback): add example tuning profile`
-- `b7448ee 2026-06-18 feat(feedback): add subjective score records`
-- `906c946 2026-06-18 feat(feedback): add tuning profile overlay`
-- `a59fcf1 2026-06-18 chore: remove local agent metadata`
-- `699098b 2026-06-18 docs: document pseudo-object repository split`
-- `89a31c6 2026-06-18 Merge pull request #2 from Kidrage/main-cleanup-legacy-4ch-r0b`
-- `f33465e 2026-06-18 Clean main legacy spatializer path`
 
 ## Current Changes
 
-- `## feat/dsp-feedback-loop-s1...origin/feat/dsp-feedback-loop-s1`
-- `?? .codex/`
-- `?? .github/`
-- `?? AGENTS.md`
-- `?? PROJECT_HANDOFF.md`
+- `## feat/spatial-core-v2-s1`
+- ` M PROJECT_HANDOFF.md`
 
 ## Related Repositories
 
@@ -132,6 +130,7 @@
 
 ### literature
 
+- `.codex/MAINLINE.md`
 - `.codex/REPO_GUIDE.md`
 - `.codex/repo_files.txt`
 - `.codex/source_index.txt`
@@ -151,7 +150,6 @@
 - `docs/BRANCH_STRATEGY.md`
 - `docs/FEEDBACK_LOOP.md`
 - `docs/REPOSITORY_STATUS.md`
-- `input_audio/README.md`
 
 ### image
 
@@ -171,6 +169,8 @@
 - `config/listener_threshold_calibration.yml`
 - `config/quality_thresholds.yml`
 - `config/refine_thresholds.yml`
+- `examples/listener_trajectory_example.json`
+- `examples/quad_layout_example.json`
 - `examples/subjective_score_example.json`
 - `profiles/quad_4p0_feedback_example.json`
 - `spatial_quality_thresholds.json`

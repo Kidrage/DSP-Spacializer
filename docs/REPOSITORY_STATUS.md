@@ -2,27 +2,21 @@
 
 ## Role
 
-This repository is the stable fixed-channel DSP spatializer mainline.
+This repository is the authoritative unified DSP spatializer mainline. It
+contains the frozen/default non-AI legacy renderer and the opt-in Spatial Core
+V2 object/FOA implementation.
 
-It keeps the non-AI stereo -> fixed 4.0 / binaural / diagnostics path clean and
-does not contain pseudo-object implementation code on `main`.
+## Reference repository
 
-## Split Notice
-
-Pseudo-object scene/export/DBAP/VBAP/hybrid renderer work has been split into:
-
-```text
-https://github.com/Kidrage/Pseudo-Object-DSP-Spatializer
-```
-
-The source repository's historical `Pseudo-Object` branch is left untouched as
-an archive unless it is explicitly removed later.
+`Kidrage/Pseudo-Object-DSP-Spatializer` and the historical `Pseudo-Object`
+branch are reference/archive material. Spatial Core has no runtime dependency
+on them.
 
 ## Branch Policy
 
-- `main`: stable fixed 4.0 / binaural / diagnostics DSP spatializer.
+- `main`: stable legacy renderer plus reviewed, opt-in Spatial Core modules.
 - `Pseudo-Object`: archival branch only after the repository split.
-- Active pseudo-object development: `Kidrage/Pseudo-Object-DSP-Spatializer`.
+- New work: focused feature branch -> PR -> CI -> `main`.
 
 ## Validation Commands
 
@@ -35,8 +29,7 @@ python -m pytest -q
 
 ## Current Limitations
 
-- No pseudo-object scene export in this repository.
-- No object-layer audio export in this repository.
-- No DBAP, 2D VBAP, or hybrid pseudo-object renderer in this repository.
-- No auto-refine yet.
+- V2 scene objects are DSP buses, not AI-separated clean stems.
+- V2.0 has no moving objects, HOA, non-omni directivity, or live tracker.
+- V2 S1 has 2D VBAP, not DBAP or hybrid decoding.
 - No listener preference learning yet.
