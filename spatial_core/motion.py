@@ -35,8 +35,10 @@ class ListenerTrajectory:
             payload = json.loads(manifest.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ValueError(f"unable to read listener trajectory: {manifest}") from exc
-        if payload.get("format") != "bds_listener_trajectory" or payload.get("version") != "1.0":
-            raise ValueError("listener trajectory must use bds_listener_trajectory version 1.0")
+        if payload.get("format") != "spatial_core_listener_trajectory" or payload.get("version") != "1.0":
+            raise ValueError(
+                "listener trajectory must use spatial_core_listener_trajectory version 1.0"
+            )
         keyframes = payload.get("keyframes", [])
         times = np.asarray([float(item["time"]) for item in keyframes], dtype=float)
         euler = np.asarray(

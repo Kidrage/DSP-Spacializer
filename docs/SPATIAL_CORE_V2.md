@@ -73,7 +73,7 @@ format shown in `examples/quad_layout_example.json`.
 
 ## Scene interchange
 
-The `bds_spatial_scene` 2.0 JSON manifest points to external WAV assets using
+The `spatial_core_scene` 2.0 JSON manifest points to external WAV assets using
 paths relative to the manifest. Object WAVs must be mono. The optional bed WAV
 must contain exactly four `W,Y,Z,X` channels. Assets are resampled to the
 declared scene rate, shorter assets are zero-padded, and missing/invalid assets
@@ -81,7 +81,7 @@ fail validation.
 
 ```json
 {
-  "format": "bds_spatial_scene",
+  "format": "spatial_core_scene",
   "version": "2.0",
   "sample_rate": 48000,
   "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
@@ -113,7 +113,7 @@ onset and delay alignment. A nearest-direction error above 15° emits a
 diagnostic warning; above 45° fails. The FOA bed is decoded to each ear by a
 regularized first-order spherical-harmonic projection over the measured set.
 
-Trajectory files use `bds_listener_trajectory` 1.0 with strictly increasing
+Trajectory files use `spatial_core_listener_trajectory` 1.0 with strictly increasing
 time keyframes. Yaw/pitch/roll are interpolated with SLERP and endpoints hold.
 
 ## Promotion gate

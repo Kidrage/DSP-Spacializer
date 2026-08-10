@@ -18,6 +18,7 @@ SKIP_DIRS = {
     ".ipynb_checkpoints",
 }
 MAX_LINE_LENGTH = 300
+RETIRED_IDENTIFIERS = ("b" + "ds",)
 
 
 def _looks_like_url_line(line: str) -> bool:
@@ -47,6 +48,11 @@ def check_file(path: Path, root: Path) -> list[str]:
         issues.append(f"{rel}: not valid UTF-8 text ({exc})")
         return issues
 
+    folded = text.casefold()
+    for identifier in RETIRED_IDENTIFIERS:
+        if identifier in folded:
+            issues.append(f"{rel}: contains a retired-company identifier")
+
     lines = text.split("\n")
     if lines and lines[-1] == "":
         logical_lines = lines[:-1]
@@ -68,6 +74,14 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     all_issues: list[str] = []
     checked = 0
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root)
+        if any(part in SKIP_DIRS for part in relative.parts):
+            continue
+        folded_name = path.name.casefold()
+        for identifier in RETIRED_IDENTIFIERS:
+            if identifier in folded_name:
+                all_issues.append(f"{relative}: path contains a retired-company identifier")
     for path in iter_text_files(root):
         checked += 1
         all_issues.extend(check_file(path, root))

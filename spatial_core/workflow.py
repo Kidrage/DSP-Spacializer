@@ -39,8 +39,8 @@ def load_speaker_layout(path: str | Path | None) -> tuple[Speaker, ...]:
         payload = json.loads(layout_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError(f"unable to read speaker layout: {layout_path}") from exc
-    if payload.get("format") != "bds_speaker_layout" or payload.get("version") != "1.0":
-        raise ValueError("speaker layout must use bds_speaker_layout version 1.0")
+    if payload.get("format") != "spatial_core_speaker_layout" or payload.get("version") != "1.0":
+        raise ValueError("speaker layout must use spatial_core_speaker_layout version 1.0")
     speakers = tuple(
         Speaker(str(item.get("name", "")), float(item["azimuth"]))
         for item in payload.get("speakers", [])
@@ -136,7 +136,7 @@ def render_spatial_v2(
     return {
         "engine": "spatial-v2",
         "input": source_description,
-        "scene_format": "bds_spatial_scene/2.0",
+        "scene_format": "spatial_core_scene/2.0",
         "sample_rate": scene.sample_rate,
         "frames": scene.num_frames,
         "outputs": outputs,
