@@ -48,11 +48,6 @@ def check_file(path: Path, root: Path) -> list[str]:
         issues.append(f"{rel}: not valid UTF-8 text ({exc})")
         return issues
 
-    folded = text.casefold()
-    for identifier in RETIRED_IDENTIFIERS:
-        if identifier in folded:
-            issues.append(f"{rel}: contains a retired-company identifier")
-
     lines = text.split("\n")
     if lines and lines[-1] == "":
         logical_lines = lines[:-1]
@@ -70,6 +65,21 @@ def check_file(path: Path, root: Path) -> list[str]:
     return issues
 
 
+def check_retired_identifiers(path: Path, root: Path) -> list[str]:
+    """Reject blocked identifiers in any file name or raw file content."""
+
+    relative = path.relative_to(root)
+    issues: list[str] = []
+    folded_name = path.name.casefold()
+    data = path.read_bytes().lower() if path.is_file() else b""
+    for identifier in RETIRED_IDENTIFIERS:
+        if identifier in folded_name:
+            issues.append(f"{relative}: path contains a retired-company identifier")
+        if identifier.encode("ascii") in data:
+            issues.append(f"{relative}: contains a retired-company identifier")
+    return issues
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     all_issues: list[str] = []
@@ -78,10 +88,7 @@ def main() -> int:
         relative = path.relative_to(root)
         if any(part in SKIP_DIRS for part in relative.parts):
             continue
-        folded_name = path.name.casefold()
-        for identifier in RETIRED_IDENTIFIERS:
-            if identifier in folded_name:
-                all_issues.append(f"{relative}: path contains a retired-company identifier")
+        all_issues.extend(check_retired_identifiers(path, root))
     for path in iter_text_files(root):
         checked += 1
         all_issues.extend(check_file(path, root))
