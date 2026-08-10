@@ -1,0 +1,85 @@
+# Source Index
+
+Repository: /Users/saintpeter/Desktop/Coding/spatializer_outputs/dsp-spatializer
+Tracked filtered files: 70
+High-value indexed files: 62
+
+Read this file before broad repository exploration. Prefer focused `rg`
+or `git grep` against the listed areas before opening source files.
+
+## first-read
+
+- README.md
+- input_audio/README.md
+
+## source
+
+- audio_io.py
+- auto_refine.py
+- batch_spatial_diagnostics.py
+- binaural_renderer.py
+- config_center.py
+- decorrelator.py
+- diagnostics.py
+- dsp_utils.py
+- energy_manager.py
+- feedback_profile_suggester.py
+- generate_test_audio.py
+- layer_extractor.py
+- layer_router.py
+- limiter.py
+- patch_export_switches_dryrir.py
+- presets.py
+- renderer_4ch.py
+- run_feedback_spatializer.py
+- run_spatializer.py
+- scripts/check_text_integrity.py
+- scripts/make_evidence_table.py
+- scripts/migrate_phase_metrics.py
+- scripts/rebuild_batch_manifest.py
+- spatial_quality_report.py
+- spatial_safety.py
+- streaming_analyzer.py
+- subjective_feedback.py
+- suggest_tuning_profile.py
+- threshold_calibrator.py
+- tuning_profile.py
+- update_spatializer_notebook_rir.py
+
+## tests
+
+- tests/conftest.py
+- tests/test_batch_spatial_diagnostics.py
+- tests/test_feedback_profile_suggester.py
+- tests/test_gain_staging.py
+- tests/test_rear_content_candidate.py
+- tests/test_run_spatializer_cli.py
+- tests/test_spatial_safety.py
+- tests/test_subjective_feedback.py
+- tests/test_text_integrity.py
+- tests/test_threshold_calibrator.py
+- tests/test_tuning_profile.py
+- tests/test_v31_candidate.py
+- tests/test_v32_candidate.py
+
+## config
+
+- config/listener_threshold_calibration.yml
+- config/quality_thresholds.yml
+- config/refine_thresholds.yml
+- examples/subjective_score_example.json
+- profiles/quad_4p0_feedback_example.json
+- spatial_quality_thresholds.json
+
+## docs
+
+- CLAUDE.md
+- HANDOFF_2026-06-23_session_changelog.md
+- HANDOFF_DSP_SPATIALIZER_S2_LIBRARY_AB_PROFILE_LOOP.md
+- HANDOFF_auto_acoustic_closed_loop_upgrade.md
+- Handoff.md
+- config/calibration_evidence.md
+- docs/BRANCH_STRATEGY.md
+- docs/FEEDBACK_LOOP.md
+- docs/REPOSITORY_STATUS.md
+- speaker_to_binaural_ctc_handoff.md
