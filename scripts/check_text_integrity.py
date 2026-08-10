@@ -10,6 +10,7 @@ from pathlib import Path
 TEXT_EXTENSIONS = {".py", ".md", ".json", ".yml", ".yaml", ".txt", ".sh"}
 SKIP_DIRS = {
     ".git",
+    ".venv",
     ".pytest_cache",
     "__pycache__",
     "outputs",

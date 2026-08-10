@@ -17,9 +17,13 @@ input_audio/*
 # Python cache
 __pycache__/
 *.pyc
+.venv/
 
 # macOS
 .DS_Store
+
+# Claude Code (project-level, not global)
+.claude/
 
 # Backups
 *.bak_*

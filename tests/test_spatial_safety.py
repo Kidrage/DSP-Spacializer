@@ -41,6 +41,7 @@ def test_compute_quality_metrics_fields_complete():
         "transient_smear_score",
         "high_harshness_score",
         "mono_fold_down_delta_db",
+        "mono_fold_down_delta_db_front_norm",
         "mono_fold_down_correlation",
         "front_lr_correlation",
         "rear_lr_correlation",
@@ -48,6 +49,17 @@ def test_compute_quality_metrics_fields_complete():
         "spatial_excess_score",
     }
     assert expected.issubset(metrics.keys())
+
+
+def test_phase_risk_does_not_penalize_expected_quad_fold_down_level():
+    left, right, _, sr = _signals("mono")
+    silence = np.zeros_like(left)
+    front_only = np.stack([left, right, silence, silence], axis=1)
+    metrics = compute_quality_metrics(left, right, front_only, sr)
+
+    assert metrics["mono_fold_down_delta_db"] < -5.5
+    assert abs(metrics["mono_fold_down_delta_db_front_norm"]) < 0.01
+    assert metrics["phase_correlation_risk"] < 0.05
 
 
 def test_silence_mono_random_do_not_crash():
@@ -75,7 +87,7 @@ def test_classify_quality_risks_detects_threshold_exceedance():
         "phase_correlation_risk": 0.9,
         "transient_smear_score": 0.9,
         "high_harshness_score": 0.9,
-        "mono_fold_down_delta_db": 4.0,
+        "mono_fold_down_delta_db_front_norm": 4.0,
         "spatial_excess_score": 0.9,
     }
     risk = classify_quality_risks(metrics, thresholds, preset_name="auto_acoustic")

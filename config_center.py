@@ -8,11 +8,23 @@
 - preset 模式：manual / auto_select / auto_acoustic
 """
 
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-INPUT_AUDIO_DIR = BASE_DIR / "input_audio"
-OUTPUT_DIR = BASE_DIR / "outputs"
+WORKSPACE_DIR = BASE_DIR.parent
+
+
+def _workspace_path(env_name, default_name):
+    """Resolve a workspace path without committing machine-specific locations."""
+    override = os.environ.get(env_name)
+    if override:
+        return Path(override).expanduser().resolve()
+    return WORKSPACE_DIR / default_name
+
+
+INPUT_AUDIO_DIR = _workspace_path("SPATIALIZER_INPUT_DIR", "曲库")
+OUTPUT_DIR = _workspace_path("SPATIALIZER_OUTPUT_DIR", "Output-DSP")
 
 # "single"：只处理 SINGLE_INPUT_FILENAME；"all"：处理 input_audio 里全部支持格式。
 PROCESS_MODE = "all"  # "single" / "all"
@@ -44,6 +56,13 @@ MANUAL_PRESET = "wide_smooth"
 
 # 如果 auto_acoustic 后方音响偏不显著，可以改 True 启用 presets.py 里的安全预备方案。
 AUTO_ACOUSTIC_REAR_ENHANCEMENT = True
+
+# ---- auto_acoustic 闭环精炼 (Phase 3) ----
+# 启用后会在 auto_acoustic 模式下：初始渲染 → 质量测量 → 参数精炼 → 最终渲染。
+# 默认保守关闭；经过充分听评验证后再打开。
+AUTO_ACOUSTIC_ENABLE_CLOSED_LOOP = True
+AUTO_ACOUSTIC_REFINE_PASSES = 2      # 精炼迭代次数（2轮：第1轮推动，第2轮修正过冲）
+AUTO_ACOUSTIC_REFINE_MAX_STEP = 1.0  # 精炼力度 (0.0=不改, 1.0=全量)
 
 # binaural 监听设置。rear gain 只影响耳机监听文件，不改变 4ch master。
 BINAURAL_FRONT_AZIMUTH_DEG = 30.0

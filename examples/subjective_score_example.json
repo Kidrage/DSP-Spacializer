@@ -1,0 +1,29 @@
+{
+  "song_id": "example_song_001",
+  "render_id": "example_song_001_auto_acoustic_v1",
+  "listener_role": "spatial_mixing_engineer",
+  "playback": {
+    "mode": "4.0_speaker",
+    "speaker_setup": "reference_quad_4p0",
+    "listening_level": "normal"
+  },
+  "scores": {
+    "envelopment": 3,
+    "front_focus": 4,
+    "vocal_clarity": 4,
+    "bass_weight": 3,
+    "bass_tightness": 4,
+    "rear_naturalness": 3,
+    "harshness": 2,
+    "mud": 2,
+    "depth": 3,
+    "width": 4,
+    "mono_safety": 4,
+    "overall_preference": 3
+  },
+  "tags": [
+    "rear_too_weak",
+    "vocal_stable"
+  ],
+  "notes": "Vocal image is stable, but the rear field can be a little more audible."
+}
