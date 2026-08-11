@@ -14,6 +14,14 @@
 - FOA + 2D VBAP quad backend and existing CTC as a post adapter.
 - Opt-in CLI only; no AI separation, moving objects, HOA, non-omni directivity, or bundled HRTF data.
 
+## Spatial Core V2.1 clarity/depth candidate
+
+- Lossless seven-zone M/S intermediate scene with a coherence-derived center anchor.
+- Compact validated `spatial_core_profile` 1.0 parameter surface.
+- Optional `balanced-depth` 6 x 5 x 3 m first-order image-source room.
+- Minimum-phase shared HRTF common-field compensation.
+- Static optimization remains the default; real listener tracking stays a later stage.
+
 ## Promotion
 
 Do not change the default engine until at least three paired tracks show mean

@@ -66,7 +66,8 @@ python -m pytest tests/test_spatial_safety.py -v
 
 ## 架构基础：5 频段分割
 
-`dsp_utils.py:band_split()` 定义了全局唯一的频段划分，被所有模块使用：
+`dsp_utils.py:band_split()` 定义了 legacy renderer、router 与 diagnostics
+共用的频段划分：
 
 | 频段 | 范围 | 用途 |
 |------|------|------|
@@ -76,7 +77,11 @@ python -m pytest tests/test_spatial_safety.py -v
 | `high_mid` | 2-6 kHz | 临场感/清晰度/齿音风险 |
 | `air` | >6 kHz | 空气感/嘶声风险 |
 
-所有滤波都是 causal（`sosfilt`，非 `filtfilt`），更接近流式行为。
+这些 legacy/runtime 滤波都是 causal（`sosfilt`，非 `filtfilt`），更接近流式行为。
+Spatial Core V2.1 是明确的离线候选例外：`spatial_core/zones.py` 使用
+2048/512 Hann STFT 做互补、可重建的七区 M/S 分解；`balanced-depth` 的
+180 Hz–8 kHz late-field bandpass 仅用于房间响应塑形，不替代 legacy
+五频段定义，也不进入实时主链。
 
 ## 核心文件
 

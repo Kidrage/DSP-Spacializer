@@ -68,3 +68,60 @@ def test_spatial_v2_cli_renders_distinct_outputs_and_exports_scene(tmp_path):
     manifest = json.loads((output_dir / "spatial_v2_manifest.json").read_text(encoding="utf-8"))
     assert manifest[0]["engine"] == "spatial-v2"
     assert set(manifest[0]["outputs"]) == {"binaural", "quad"}
+
+
+def test_spatial_v2_cli_applies_profile_to_scene_and_balanced_room(tmp_path):
+    frames = 2048
+    time = np.arange(frames) / 48_000
+    stereo = np.stack(
+        [0.03 * np.sin(2 * np.pi * 330 * time), 0.03 * np.sin(2 * np.pi * 330 * time)],
+        axis=1,
+    ).astype(np.float32)
+    input_path = tmp_path / "input.wav"
+    sofa_path = tmp_path / "listener.sofa"
+    profile_path = tmp_path / "profile.json"
+    output_dir = tmp_path / "outputs"
+    scene_path = tmp_path / "scene.json"
+    sf.write(input_path, stereo, 48_000)
+    _write_dense_test_sofa(sofa_path)
+    profile_path.write_text(
+        json.dumps(
+            {
+                "format": "spatial_core_profile",
+                "version": "1.0",
+                "parameters": {"front_distance_m": 2.0, "front_width_deg": 48.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "run_spatializer.py",
+            str(input_path),
+            "--engine",
+            "spatial-v2",
+            "--sofa",
+            str(sofa_path),
+            "--spatial-profile",
+            str(profile_path),
+            "--room-profile",
+            "balanced-depth",
+            "--export-scene",
+            str(scene_path),
+            "--out-dir",
+            str(output_dir),
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads((output_dir / "spatial_v2_manifest.json").read_text(encoding="utf-8"))
+    assert manifest[0]["diagnostics"]["binaural"]["room_profile"]["name"] == "balanced-depth"
+    assert manifest[0]["diagnostics"]["binaural"]["block_size"] == 8_192
+    scene = json.loads(scene_path.read_text(encoding="utf-8"))
+    assert scene["metadata"]["profile"]["front_distance_m"] == 2.0
+    assert scene["metadata"]["profile"]["front_width_deg"] == 48.0

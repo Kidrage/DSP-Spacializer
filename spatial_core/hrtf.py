@@ -62,9 +62,9 @@ def _front_common_field_compensation(
     front_ir: np.ndarray,
     sample_rate: int,
     *,
-    num_taps: int = 2049,
+    num_taps: int = 4097,
 ) -> tuple[np.ndarray, float, float]:
-    """Return a bounded linear-phase inverse of the frontal common transfer.
+    """Return a bounded minimum-phase inverse of the frontal common transfer.
 
     The same filter is applied to both ears after rendering, so directional
     interaural differences remain intact. Broad log-frequency smoothing avoids
@@ -87,10 +87,23 @@ def _front_common_field_compensation(
     padding = window.size // 2
     smoothed_db = np.convolve(np.pad(common_db, padding, mode="edge"), window, mode="valid")
     reference_db = float(np.interp(1_000.0, control_frequencies, smoothed_db))
-    correction_db = np.clip(reference_db - smoothed_db, -18.0, 20.0)
+    correction_db = np.clip(reference_db - smoothed_db, -18.0, 25.0)
     design_frequencies = np.concatenate(([0.0], control_frequencies)) / nyquist
     design_gain = 10.0 ** (np.concatenate(([correction_db[0]], correction_db)) / 20.0)
-    compensation = firwin2(num_taps, design_frequencies, design_gain)
+    linear_compensation = firwin2(num_taps, design_frequencies, design_gain)
+    phase_fft = max(16_384, 1 << int(np.ceil(np.log2(num_taps * 8))))
+    magnitude = np.maximum(np.abs(np.fft.rfft(linear_compensation, phase_fft)), 1e-8)
+    cepstrum = np.fft.irfft(np.log(magnitude), phase_fft)
+    minimum_cepstrum = np.zeros_like(cepstrum)
+    minimum_cepstrum[0] = cepstrum[0]
+    minimum_cepstrum[1 : phase_fft // 2] = 2.0 * cepstrum[1 : phase_fft // 2]
+    minimum_cepstrum[phase_fft // 2] = cepstrum[phase_fft // 2]
+    minimum_spectrum = np.exp(np.fft.rfft(minimum_cepstrum))
+    compensation = np.fft.irfft(minimum_spectrum, phase_fft)[:num_taps]
+    reference_bin = int(round(1_000.0 * phase_fft / sample_rate))
+    truncated_magnitude = abs(np.fft.rfft(compensation, phase_fft)[reference_bin])
+    if truncated_magnitude > 1e-9:
+        compensation *= magnitude[reference_bin] / truncated_magnitude
     return (
         np.asarray(compensation, dtype=np.float32),
         float(np.max(correction_db)),

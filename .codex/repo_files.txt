@@ -46,6 +46,7 @@ limiter.py
 patch_export_switches_dryrir.py
 presets.py
 profiles/quad_4p0_feedback_example.json
+profiles/spatial_core_balanced_depth.json
 renderer_4ch.py
 requirements.txt
 run_feedback_spatializer.py
@@ -62,10 +63,13 @@ spatial_core/evaluation.py
 spatial_core/foa.py
 spatial_core/hrtf.py
 spatial_core/motion.py
+spatial_core/profile.py
 spatial_core/rendering.py
+spatial_core/room.py
 spatial_core/scene.py
 spatial_core/speaker.py
 spatial_core/workflow.py
+spatial_core/zones.py
 spatial_quality_report.py
 spatial_quality_thresholds.json
 spatial_safety.py
@@ -82,8 +86,11 @@ tests/test_rear_content_candidate.py
 tests/test_run_spatializer_cli.py
 tests/test_spatial_core_binaural.py
 tests/test_spatial_core_foa.py
+tests/test_spatial_core_profile.py
+tests/test_spatial_core_room.py
 tests/test_spatial_core_scene.py
 tests/test_spatial_core_speaker.py
+tests/test_spatial_core_zones.py
 tests/test_spatial_safety.py
 tests/test_spatial_v2_cli.py
 tests/test_spatial_v2_promotion.py

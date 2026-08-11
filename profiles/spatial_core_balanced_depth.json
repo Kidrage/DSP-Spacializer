@@ -1,0 +1,16 @@
+{
+  "format": "spatial_core_profile",
+  "version": "1.0",
+  "parameters": {
+    "center_anchor": 0.8,
+    "front_distance_m": 1.6,
+    "front_width_deg": 35.0,
+    "bed_width_gain": 0.25,
+    "bed_rear_gain": 0.18,
+    "bed_air_gain": 0.12,
+    "direct_ratio": 0.78,
+    "early_reflection_level_db": -21.0,
+    "late_reverb_level_db": -27.0,
+    "late_rt60_s": 0.35
+  }
+}

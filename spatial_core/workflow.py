@@ -14,7 +14,8 @@ from .adapters import CtcOutputAdapter
 from .binaural import SofaBinauralRenderer
 from .builder import build_scene
 from .motion import ListenerTrajectory
-from .scene import SpatialScene, load_scene, save_scene
+from .profile import SpatialCoreProfile, load_spatial_profile
+from .scene import load_scene, save_scene
 from .speaker import DEFAULT_QUAD_LAYOUT, QuadSpeakerRenderer, Speaker
 
 
@@ -69,6 +70,7 @@ def render_spatial_v2(
     micro_motion: bool = False,
     motion_seed: int = 0,
     room_profile: str = "small-dry",
+    spatial_profile_path: str | Path | None = None,
     speaker_layout_path: str | Path | None = None,
     export_ctc: bool = False,
     ctc_options: dict[str, object] | None = None,
@@ -82,8 +84,13 @@ def render_spatial_v2(
     needs_binaural = output_mode in {"binaural", "both"} or export_ctc
     if needs_binaural and sofa_path is None:
         raise ValueError("Spatial Core V2 binaural and CTC output require --sofa")
-    if room_profile not in {"small-dry", "off"}:
-        raise ValueError("room_profile must be 'small-dry' or 'off'")
+    if room_profile not in {"small-dry", "balanced-depth", "off"}:
+        raise ValueError("room_profile must be 'small-dry', 'balanced-depth', or 'off'")
+    profile = (
+        load_spatial_profile(spatial_profile_path)
+        if spatial_profile_path is not None
+        else SpatialCoreProfile()
+    )
 
     if scene_manifest is not None:
         scene = load_scene(scene_manifest)
@@ -91,7 +98,7 @@ def render_spatial_v2(
         source_description = str(Path(scene_manifest).expanduser().resolve())
     else:
         stereo, sample_rate = _read_stereo(input_path, int(target_sample_rate))
-        scene = build_scene(stereo, sample_rate=sample_rate)
+        scene = build_scene(stereo, profile=profile, sample_rate=sample_rate)
         stem = Path(input_path).stem
         source_description = str(Path(input_path).expanduser().resolve())
     out_dir = Path(output_dir).expanduser().resolve()
@@ -114,6 +121,9 @@ def render_spatial_v2(
             micro_motion=micro_motion,
             motion_seed=motion_seed,
             room_enabled=room_profile != "off",
+            room_profile=room_profile,
+            profile=profile,
+            block_size=512 if trajectory is not None or micro_motion else 8_192,
         )
     if output_mode in {"binaural", "both"}:
         result = binaural_renderer.render(scene)
