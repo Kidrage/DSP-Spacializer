@@ -31,6 +31,7 @@ diagnostics.py
 docs/BRANCH_STRATEGY.md
 docs/FEEDBACK_LOOP.md
 docs/REPOSITORY_STATUS.md
+docs/SEVEN_ZONE_MIXER.md
 docs/SPATIAL_CORE_V2.md
 dsp_utils.py
 energy_manager.py
@@ -47,9 +48,11 @@ patch_export_switches_dryrir.py
 presets.py
 profiles/quad_4p0_feedback_example.json
 profiles/spatial_core_balanced_depth.json
+profiles/spatial_mixer_universal_default.json
 renderer_4ch.py
 requirements.txt
 run_feedback_spatializer.py
+run_spatial_mixer.py
 run_spatializer.py
 scripts/check_text_integrity.py
 scripts/make_evidence_table.py
@@ -70,6 +73,10 @@ spatial_core/scene.py
 spatial_core/speaker.py
 spatial_core/workflow.py
 spatial_core/zones.py
+spatial_mixer/__init__.py
+spatial_mixer/campaign.py
+spatial_mixer/profile.py
+spatial_mixer/rendering.py
 spatial_quality_report.py
 spatial_quality_thresholds.json
 spatial_safety.py
@@ -91,6 +98,10 @@ tests/test_spatial_core_room.py
 tests/test_spatial_core_scene.py
 tests/test_spatial_core_speaker.py
 tests/test_spatial_core_zones.py
+tests/test_spatial_mixer_campaign.py
+tests/test_spatial_mixer_profile.py
+tests/test_spatial_mixer_rendering.py
+tests/test_spatial_mixer_web.py
 tests/test_spatial_safety.py
 tests/test_spatial_v2_cli.py
 tests/test_spatial_v2_promotion.py
@@ -103,3 +114,8 @@ tests/test_v32_candidate.py
 threshold_calibrator.py
 tuning_profile.py
 update_spatializer_notebook_rir.py
+web_ui/__init__.py
+web_ui/server.py
+web_ui/static/app.js
+web_ui/static/index.html
+web_ui/static/styles.css

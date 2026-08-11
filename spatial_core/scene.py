@@ -39,6 +39,8 @@ class SpatialObject:
     size: float = 0.0
     diffusion: float = 0.0
     direct_ratio: float | None = None
+    early_reflection_trim_db: float = 0.0
+    late_reverb_trim_db: float = 0.0
     directivity: str = "omni"
 
     def __post_init__(self) -> None:
@@ -57,6 +59,10 @@ class SpatialObject:
             raise ValueError("diffusion must be within [0, 1]")
         if self.direct_ratio is not None and not 0.0 <= float(self.direct_ratio) <= 1.0:
             raise ValueError("direct_ratio must be within [0, 1]")
+        if not -18.0 <= float(self.early_reflection_trim_db) <= 12.0:
+            raise ValueError("early_reflection_trim_db must be within [-18, 12]")
+        if not -18.0 <= float(self.late_reverb_trim_db) <= 12.0:
+            raise ValueError("late_reverb_trim_db must be within [-18, 12]")
         if self.directivity != "omni":
             raise ValueError("Spatial Core V2 supports omni directivity only")
 
@@ -183,6 +189,8 @@ def load_scene(manifest_path: str | Path) -> SpatialScene:
                 direct_ratio=(
                     None if spec.get("direct_ratio") is None else float(spec["direct_ratio"])
                 ),
+                early_reflection_trim_db=float(spec.get("early_reflection_trim_db", 0.0)),
+                late_reverb_trim_db=float(spec.get("late_reverb_trim_db", 0.0)),
                 directivity=str(spec.get("directivity", "omni")),
             )
         )
@@ -229,6 +237,8 @@ def save_scene(scene: SpatialScene, manifest_path: str | Path) -> Path:
                 "size": item.size,
                 "diffusion": item.diffusion,
                 "direct_ratio": item.direct_ratio,
+                "early_reflection_trim_db": item.early_reflection_trim_db,
+                "late_reverb_trim_db": item.late_reverb_trim_db,
                 "directivity": item.directivity,
             }
         )

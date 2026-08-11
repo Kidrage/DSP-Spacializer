@@ -10,6 +10,22 @@ DSP-Spacializer contains a stable, non-AI legacy stereo-to-4.0/binaural DSP rend
 
 Spatial Core V2.1 creates a lossless M/S seven-zone scene plus an AmbiX FOA bed, then renders the same scene to measured-SOFA binaural or FOA/VBAP quad backends. It does not perform AI source separation. See [Spatial Core V2.1](docs/SPATIAL_CORE_V2.md).
 
+### Seven-zone listener calibration mixer
+
+Build one universal seven-zone configuration through local cached, server-bound
+blind excerpts. Versions 1 and 2 share one audio clock; promotion requires the
+pinned nine-track/six-class evidence set:
+
+```bash
+python run_spatial_mixer.py \
+  --library-dir /absolute/path/to/music-library \
+  --sofa /absolute/path/to/measured-listener.sofa
+```
+
+Open `http://127.0.0.1:8765`. See the [mixer theory and complete parameter
+table](docs/SEVEN_ZONE_MIXER.md) for the listening order, validation gate, and
+offline render command.
+
 ## 中文
 
 DSP-Spacializer 同时包含稳定的 legacy stereo→4.0/binaural DSP 渲染器，以及显式启用的 Spatial Core V2 object/FOA 架构。V3.2 仍是默认基线，V2 需通过听感门槛后才能晋升。

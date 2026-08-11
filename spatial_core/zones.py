@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Mapping
 
 import numpy as np
 from scipy.signal import istft, stft
@@ -71,6 +72,7 @@ def extract_spatial_zones(
     *,
     sample_rate: int = 48_000,
     profile: SpatialCoreProfile | None = None,
+    extraction: Mapping[str, float] | None = None,
 ) -> SpatialZones:
     """Split stereo into seven non-overlapping zones with exact dry reconstruction."""
 
@@ -80,6 +82,26 @@ def extract_spatial_zones(
     if not np.all(np.isfinite(audio)):
         raise ValueError("stereo input contains non-finite samples")
     settings = profile or SpatialCoreProfile()
+    extraction_values = {
+        "bass_low_hz": 80.0,
+        "bass_high_hz": 160.0,
+        "center_anchor": float(settings.center_anchor),
+        "center_focus_low_hz": 900.0,
+        "center_focus_high_hz": 2_500.0,
+        "center_focus_floor": 0.25,
+        "front_side_weight_low": 0.90,
+        "front_side_weight_high": 0.75,
+        "rear_strength": 0.55,
+        "rear_low_hz": 1_500.0,
+        "rear_high_hz": 3_000.0,
+        "air_low_hz": 5_500.0,
+        "air_high_hz": 9_000.0,
+    }
+    if extraction is not None:
+        unknown = sorted(set(extraction) - set(extraction_values))
+        if unknown:
+            raise ValueError(f"unknown extraction parameter: {unknown[0]}")
+        extraction_values.update({name: float(value) for name, value in extraction.items()})
     frames = audio.shape[0]
     if frames == 0:
         empty = np.zeros(0, dtype=np.float32)
@@ -110,7 +132,11 @@ def extract_spatial_zones(
     side = 0.5 * (left - right)
 
     frequency_column = frequencies[:, None]
-    bass_mask = 1.0 - _cosine_ramp(frequency_column, 80.0, 160.0)
+    bass_mask = 1.0 - _cosine_ramp(
+        frequency_column,
+        extraction_values["bass_low_hz"],
+        extraction_values["bass_high_hz"],
+    )
     magnitude_left = np.abs(left)
     magnitude_right = np.abs(right)
     denominator = magnitude_left * magnitude_right + 1e-12
@@ -122,9 +148,13 @@ def extract_spatial_zones(
     balance = 2.0 * np.minimum(magnitude_left, magnitude_right) / (
         magnitude_left + magnitude_right + 1e-12
     )
-    anchor_focus = 1.0 - 0.75 * _cosine_ramp(frequency_column, 900.0, 2_500.0)
+    anchor_focus = 1.0 - (1.0 - extraction_values["center_focus_floor"]) * _cosine_ramp(
+        frequency_column,
+        extraction_values["center_focus_low_hz"],
+        extraction_values["center_focus_high_hz"],
+    )
     center_mask = (
-        float(settings.center_anchor)
+        extraction_values["center_anchor"]
         * phase_coherence
         * balance
         * anchor_focus
@@ -134,12 +164,33 @@ def extract_spatial_zones(
     center_spectrum = center_mask * mid
     residual_mid = mid - bass_spectrum - center_spectrum
 
-    front_side_weight = 0.90 - 0.10 * _cosine_ramp(frequency_column, 500.0, 6_000.0)
-    front_side_weight -= 0.05 * _cosine_ramp(frequency_column, 6_000.0, 10_000.0)
-    front_side_weight = np.clip(front_side_weight, 0.75, 0.90)
+    front_weight_range = (
+        extraction_values["front_side_weight_low"]
+        - extraction_values["front_side_weight_high"]
+    )
+    front_side_weight = extraction_values["front_side_weight_low"]
+    front_side_weight -= (2.0 / 3.0) * front_weight_range * _cosine_ramp(
+        frequency_column, 500.0, 6_000.0
+    )
+    front_side_weight -= (1.0 / 3.0) * front_weight_range * _cosine_ramp(
+        frequency_column, 6_000.0, 10_000.0
+    )
+    front_side_weight = np.clip(
+        front_side_weight,
+        extraction_values["front_side_weight_high"],
+        extraction_values["front_side_weight_low"],
+    )
     bed_weight = 1.0 - front_side_weight
-    air_preference = _cosine_ramp(frequency_column, 5_500.0, 9_000.0)
-    rear_preference = 0.55 * _cosine_ramp(frequency_column, 1_500.0, 3_000.0)
+    air_preference = _cosine_ramp(
+        frequency_column,
+        extraction_values["air_low_hz"],
+        extraction_values["air_high_hz"],
+    )
+    rear_preference = extraction_values["rear_strength"] * _cosine_ramp(
+        frequency_column,
+        extraction_values["rear_low_hz"],
+        extraction_values["rear_high_hz"],
+    )
     rear_preference *= 1.0 - 0.65 * _cosine_ramp(frequency_column, 6_000.0, 10_000.0)
     width_preference = np.ones_like(frequency_column)
     preference_sum = width_preference + rear_preference + air_preference

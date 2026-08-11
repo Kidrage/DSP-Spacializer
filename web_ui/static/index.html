@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>七区通用配置校准混音台</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">SPATIAL CORE · LISTENER CALIBRATION</p>
+      <h1>七区通用配置校准混音台</h1>
+    </div>
+    <div class="header-status">
+      <span class="status-dot"></span>
+      <span>仅本机运行</span>
+      <code id="draft-hash">载入中</code>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="工作区">
+    <button class="tab active" data-page="mixer">混音台</button>
+    <button class="tab" data-page="calibration">通用校准</button>
+    <button class="tab" data-page="monitor">监听校正</button>
+    <button class="tab" data-page="lab">分区实验室</button>
+  </nav>
+
+  <main>
+    <section id="page-mixer" class="page active">
+      <div class="transport panel">
+        <label>曲目<select id="track-select"></select></label>
+        <label>起点 <span id="start-value">0s</span><input id="start" type="range" min="0" max="180" value="0"></label>
+        <label>摘录<select id="duration"><option value="10">10 秒</option><option value="20" selected>20 秒</option><option value="30">30 秒</option></select></label>
+        <button id="render-preview" class="primary">生成盲听试听</button>
+        <div class="ab-switch" role="group" aria-label="试听版本">
+          <button data-variant="reference">REF 原曲</button>
+          <button data-variant="1">版本 1</button>
+          <button data-variant="2" class="active">版本 2</button>
+        </div>
+        <button id="play-pause" disabled>播放</button>
+        <canvas id="waveform" class="waveform" width="1200" height="72" aria-label="当前试听波形"></canvas>
+      </div>
+
+      <div class="mixer-layout">
+        <section class="stage panel">
+          <div class="panel-heading"><div><p class="eyebrow">SPATIAL OVERVIEW</p><h2>声音舞台</h2></div><span>俯视图</span></div>
+          <div id="spatial-stage" class="spatial-stage">
+            <div class="listener"><span>你</span></div>
+            <div class="stage-ring ring-near"></div><div class="stage-ring ring-far"></div>
+            <div class="stage-axis axis-v"></div><div class="stage-axis axis-h"></div>
+          </div>
+          <div id="warnings" class="warnings"></div>
+        </section>
+
+        <aside class="inspector panel">
+          <div class="panel-heading"><div><p class="eyebrow">SELECTED ZONE</p><h2 id="inspector-title">选择一个区域</h2></div><span id="inspector-kind"></span></div>
+          <p id="inspector-help" class="help">点击下方任一区域，查看适合听感校准的完整参数。</p>
+          <div id="inspector-controls" class="control-grid"></div>
+          <label class="link-toggle"><input id="front-link" type="checkbox" checked> 前方左右联动</label>
+        </aside>
+      </div>
+
+      <section class="console panel">
+        <div class="panel-heading"><div><p class="eyebrow">SEVEN-ZONE CONSOLE</p><h2>七区通道条</h2></div><span>Mute / Solo 只影响试听，不写入配置</span></div>
+        <div id="channel-strips" class="channel-strips"></div>
+      </section>
+
+      <section class="room panel">
+        <div class="panel-heading"><div><p class="eyebrow">MASTER ROOM</p><h2>空间深度</h2></div><span>首次早反射 + 后期声场</span></div>
+        <div id="room-controls" class="room-controls"></div>
+      </section>
+    </section>
+
+    <section id="page-calibration" class="page">
+      <div class="calibration-grid">
+        <section class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">9 TRACKS · 6 CLASSES</p><h2>通用性验证矩阵</h2></div><span id="validation-progress">0 / 9</span></div>
+          <div class="table-wrap"><table><thead><tr><th>曲目</th><th>类别</th><th>选择</th><th>客观告警</th><th>状态</th></tr></thead><tbody id="validation-table"></tbody></table></div>
+        </section>
+        <aside class="panel evaluation-form">
+          <div class="panel-heading"><div><p class="eyebrow">BLIND COMPARISON</p><h2>记录本次听感</h2></div></div>
+          <label>类别<input id="evaluation-category" list="category-options" placeholder="例如 cinematic"></label>
+          <datalist id="category-options"><option value="pop"><option value="ballad"><option value="cinematic"><option value="world"><option value="jazz"><option value="electronic"></datalist>
+          <div class="choice-row"><button data-choice="1">版本 1 更好</button><button data-choice="equal">相当</button><button data-choice="2" class="active">版本 2 更好</button></div>
+          <div id="score-controls"></div>
+          <label>听感笔记<textarea id="evaluation-notes" rows="3" placeholder="重点记录人声清晰度、低频重量和距离感"></textarea></label>
+          <button id="save-comparison" class="primary">保存当前曲目评价</button>
+          <hr>
+          <label>红色告警覆盖理由<textarea id="override-reason" rows="3" placeholder="只有客观指标为红色时需要填写"></textarea></label>
+          <button id="promote-profile" class="danger">发布为通用配置</button>
+          <p class="help">发布只生成不可变配置、证据和报告，不会自动替换仓库默认算法。</p>
+        </aside>
+      </div>
+    </section>
+
+    <section id="page-monitor" class="page">
+      <section class="panel narrow-panel">
+        <div class="panel-heading"><div><p class="eyebrow">MONITOR ONLY</p><h2>你的耳机与听觉补偿</h2></div><span>REF / 版本 1 / 版本 2 同时生效</span></div>
+        <p class="lead">这些调整只用于让你判断得更稳定。它们不会进入通用 DSP 配置，也不会改变客观检测。</p>
+        <div id="monitor-controls" class="monitor-controls"></div>
+      </section>
+    </section>
+
+    <section id="page-lab" class="page">
+      <div class="lab-grid">
+        <section class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">EXTRACTION LAB</p><h2>七区内容边界</h2></div><span>高级 · 修改会使旧评价失效</span></div>
+          <p class="lead">这里决定“什么声音进入哪个区域”，不是决定区域放在哪里。不了解算法时建议先使用混音台页面。</p>
+          <div id="extraction-controls" class="control-grid extraction-controls"></div>
+          <div id="lab-solo" class="lab-solo" aria-label="分区独听"></div>
+          <button id="analyze-extraction" class="primary">分析当前摘录</button>
+        </section>
+        <aside class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">MASK HEALTH</p><h2>分区与重构</h2></div><span>STFT 2048 / Hop 512</span></div>
+          <div id="lab-result" class="lab-result empty">运行分析后显示各区能量、频谱与重构误差。</div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" role="status"></div>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

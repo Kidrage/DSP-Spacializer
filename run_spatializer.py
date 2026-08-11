@@ -566,11 +566,14 @@ def main():
     parser.add_argument("--micro-motion", action="store_true", help="Enable deterministic simulated head micro-motion")
     parser.add_argument("--motion-seed", type=int, default=0, help="Micro-motion random seed")
     parser.add_argument(
-        "--room-profile", choices=["small-dry", "balanced-depth", "off"], default="small-dry",
-        help="Spatial V2 early/late room profile",
+        "--room-profile", choices=["small-dry", "balanced-depth", "off"], default=None,
+        help="Spatial V2 early/late room profile (mixer profiles default to balanced-depth)",
     )
     parser.add_argument(
         "--spatial-profile", default=None, help="Spatial Core compact profile JSON"
+    )
+    parser.add_argument(
+        "--mixer-profile", default=None, help="Strict seven-zone universal mixer profile JSON"
     )
     parser.add_argument(
         "--speaker-layout", default=None, help="Spatial Core four-speaker layout JSON"
@@ -645,6 +648,8 @@ def main():
             parser.error("stereo input and --scene-manifest are mutually exclusive")
         if not args.input_file and not args.scene_manifest:
             parser.error("Spatial Core V2 requires a stereo input or --scene-manifest")
+        if args.spatial_profile and args.mixer_profile:
+            parser.error("--spatial-profile and --mixer-profile are mutually exclusive")
         output_mode = args.output_mode or "binaural"
         try:
             record = render_spatial_v2(
@@ -658,8 +663,11 @@ def main():
                 listener_trajectory_path=args.listener_trajectory,
                 micro_motion=args.micro_motion,
                 motion_seed=args.motion_seed,
-                room_profile=args.room_profile,
+                room_profile=args.room_profile or (
+                    "balanced-depth" if args.mixer_profile else "small-dry"
+                ),
                 spatial_profile_path=args.spatial_profile,
+                mixer_profile_path=args.mixer_profile,
                 speaker_layout_path=args.speaker_layout,
                 export_ctc=args.export_binaural_ctc_4ch,
                 ctc_options={

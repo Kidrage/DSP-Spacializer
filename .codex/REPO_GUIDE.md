@@ -23,6 +23,12 @@ Deterministic, non-AI spatializer with a frozen legacy stereo-to-fixed-4.0/binau
 - `tests/test_v32_candidate.py`: focused V3.2 regression contract.
 - `spatial_core/`: V2 scene interchange, lossless seven-zone M/S builder, compact profile, geometry room, SOFA binaural, listener motion, quad VBAP, and CTC adapter.
 - `docs/SPATIAL_CORE_V2.md`: V2 contracts, formats, CLI, and promotion gate.
+- `spatial_mixer/`: strict universal seven-zone profile, preview renderer, pinned
+  calibration campaign, blind comparison evidence, and promotion export.
+- `run_spatial_mixer.py` + `web_ui/`: local-only calibration console. The server
+  owns all campaign mutations; the browser is not an evidence authority.
+- `docs/SEVEN_ZONE_MIXER.md`: mixing theory, safe listening order, profile and
+  campaign contracts, and launch instructions.
 
 ## Commands
 
@@ -31,6 +37,7 @@ python -m pip install -r requirements.txt
 python -m pytest -q
 python -m pytest -q tests/test_v32_candidate.py
 python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic --output-mode 4ch
+python run_spatial_mixer.py --library-dir /absolute/audio/library --sofa /absolute/listener.sofa
 ```
 
 ## Constraints
@@ -41,6 +48,12 @@ python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic
 - V2 binaural requires measured `SimpleFreeFieldHRIR` SOFA data; no procedural fallback or bundled dataset.
 - V2.1 stereo scenes use `spatial_core_profile` 1.0 and can opt into the
   `balanced-depth` room. Keep `small-dry` and `off` compatible.
+- The opt-in `spatial_mixer_profile` 1.0 expands V2.1 into four direct-object
+  strips, three FOA field strips, room controls, and extraction controls. JSON
+  object key order is irrelevant; loading canonicalizes the seven zones.
+- Calibration promotion requires the pinned nine-track/six-class set and
+  server-bound preview evidence. Objective red warnings require a written,
+  exported override; they are not silently converted to a pass.
 - Avoid `input_audio/` payloads, `outputs/`, workspace-level `曲库/` and `Output-DSP/`, `.venv/`, caches, notebooks, and binary/audio assets unless explicitly required.
 - Keep generated listener data and suggested tuning profiles external to the stable renderer path.
 

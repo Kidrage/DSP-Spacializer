@@ -17,6 +17,8 @@ from .motion import ListenerTrajectory
 from .profile import SpatialCoreProfile, load_spatial_profile
 from .scene import load_scene, save_scene
 from .speaker import DEFAULT_QUAD_LAYOUT, QuadSpeakerRenderer, Speaker
+from spatial_mixer import load_mixer_profile
+from spatial_mixer.rendering import build_mixer_scene
 
 
 def _read_stereo(path: str | Path, target_rate: int) -> tuple[np.ndarray, int]:
@@ -71,6 +73,7 @@ def render_spatial_v2(
     motion_seed: int = 0,
     room_profile: str = "small-dry",
     spatial_profile_path: str | Path | None = None,
+    mixer_profile_path: str | Path | None = None,
     speaker_layout_path: str | Path | None = None,
     export_ctc: bool = False,
     ctc_options: dict[str, object] | None = None,
@@ -86,11 +89,27 @@ def render_spatial_v2(
         raise ValueError("Spatial Core V2 binaural and CTC output require --sofa")
     if room_profile not in {"small-dry", "balanced-depth", "off"}:
         raise ValueError("room_profile must be 'small-dry', 'balanced-depth', or 'off'")
+    if spatial_profile_path is not None and mixer_profile_path is not None:
+        raise ValueError("--spatial-profile and --mixer-profile are mutually exclusive")
+    if scene_manifest is not None and mixer_profile_path is not None:
+        raise ValueError("--mixer-profile can only be used with stereo input")
     profile = (
         load_spatial_profile(spatial_profile_path)
         if spatial_profile_path is not None
         else SpatialCoreProfile()
     )
+    mixer_profile = (
+        load_mixer_profile(mixer_profile_path)
+        if mixer_profile_path is not None
+        else None
+    )
+    renderer_profile = profile
+    if mixer_profile is not None:
+        renderer_profile = SpatialCoreProfile(
+            early_reflection_level_db=mixer_profile.room.early_reflection_level_db,
+            late_reverb_level_db=mixer_profile.room.late_reverb_level_db,
+            late_rt60_s=mixer_profile.room.late_rt60_s,
+        )
 
     if scene_manifest is not None:
         scene = load_scene(scene_manifest)
@@ -98,7 +117,11 @@ def render_spatial_v2(
         source_description = str(Path(scene_manifest).expanduser().resolve())
     else:
         stereo, sample_rate = _read_stereo(input_path, int(target_sample_rate))
-        scene = build_scene(stereo, profile=profile, sample_rate=sample_rate)
+        scene = (
+            build_mixer_scene(stereo, mixer_profile, sample_rate=sample_rate)
+            if mixer_profile is not None
+            else build_scene(stereo, profile=profile, sample_rate=sample_rate)
+        )
         stem = Path(input_path).stem
         source_description = str(Path(input_path).expanduser().resolve())
     out_dir = Path(output_dir).expanduser().resolve()
@@ -122,7 +145,7 @@ def render_spatial_v2(
             motion_seed=motion_seed,
             room_enabled=room_profile != "off",
             room_profile=room_profile,
-            profile=profile,
+            profile=renderer_profile,
             block_size=512 if trajectory is not None or micro_motion else 8_192,
         )
     if output_mode in {"binaural", "both"}:
@@ -147,6 +170,11 @@ def render_spatial_v2(
         "engine": "spatial-v2",
         "input": source_description,
         "scene_format": "spatial_core_scene/2.0",
+        "profile_format": (
+            "spatial_mixer_profile/1.0"
+            if mixer_profile is not None
+            else "spatial_core_profile/1.0"
+        ),
         "sample_rate": scene.sample_rate,
         "frames": scene.num_frames,
         "outputs": outputs,
