@@ -9,12 +9,12 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-11T04:52:32.816395+00:00`
+- Generated at: `2026-08-11T04:56:10.139757+00:00`
 
 ## Current State
 
-- Branch: `feat/spatial-core-v2p1-depth-clarity`
-- HEAD: `b094a4b`
+- Branch: `fix/clarity-gate-nonfinite`
+- HEAD: `5fe5c77`
 - Indexed paths: 105
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -60,8 +60,8 @@
 
 ### Categories
 
-- code: 68 files, 415504 bytes
-- literature: 24 files, 174394 bytes
+- code: 68 files, 416946 bytes
+- literature: 24 files, 174616 bytes
 - other: 3 files, 81607 bytes
 - structured_data: 10 files, 7076 bytes
 
@@ -89,6 +89,9 @@
 
 ## Change History
 
+- `5fe5c77 2026-08-11 fix: fail closed on invalid clarity metrics`
+- `1c5b8f6 2026-08-11 Merge pull request #7 from Kidrage/feat/spatial-core-v2p1-depth-clarity`
+- `5e54902 2026-08-11 docs: refresh promotion-contract handoff`
 - `b094a4b 2026-08-11 fix: enforce Spatial Core promotion contracts`
 - `3b1d086 2026-08-11 docs: refresh Spatial Core V2.1 handoff`
 - `d03efea 2026-08-11 fix: address Spatial Core V2.1 review findings`
@@ -106,13 +109,10 @@
 - `77dec30 2026-08-10 fix: tighten Spatial Core V2 rendering contracts`
 - `8a95fc0 2026-08-10 feat: expose opt-in Spatial Core V2 workflow`
 - `dc11cff 2026-08-10 feat: add SOFA binaural and quad speaker renderers`
-- `0aca659 2026-08-10 feat: add Spatial Core V2 scene format and FOA builder`
-- `0701a0a 2026-08-10 Merge pull request #3 from Kidrage/feat/dsp-feedback-loop-s1`
-- `071435b 2026-08-10 chore: add repository onboarding and CI`
 
 ## Current Changes
 
-- `## feat/spatial-core-v2p1-depth-clarity`
+- `## fix/clarity-gate-nonfinite`
 
 ## Related Repositories
 
@@ -204,12 +204,15 @@
   `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_core_v2p1_candidates_reviewed/`;
   generated audio remains untracked. All files are 48 kHz stereo float WAV,
   and the limiter is inactive for all three after peak-aware gain matching.
-- Validation: 123 pytest tests, focused Ruff, text-integrity, and
+- Validation: 125 pytest tests, focused Ruff, text-integrity, and
   `git diff --check` pass. The objective clarity gate remains RED: all three
   exceed the 1 dB M/S-balance delta; the wide orchestral candidate also fails
   crest, low-mid, and presence thresholds. These are audition candidates, not
   promoted defaults. The promotion evaluator now requires an explicit
   objective-clarity pass for every paired track.
+- Objective clarity measurement and classification fail closed: silent audio,
+  non-finite samples, and non-finite metric values are rejected before any
+  promotion decision.
 <!-- AGENT_NOTES_END -->
 
 ## Mandatory Update Rule

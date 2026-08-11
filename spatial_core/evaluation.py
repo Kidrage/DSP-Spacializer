@@ -49,6 +49,10 @@ def _clarity_snapshot(audio: np.ndarray, sample_rate: int) -> dict[str, object]:
     value = np.asarray(audio, dtype=np.float64)
     if value.ndim != 2 or value.shape[1] != 2:
         raise ValueError("clarity audio must be shaped [frames, 2]")
+    if not np.all(np.isfinite(value)):
+        raise ValueError("clarity audio must contain only finite samples")
+    if not np.any(np.abs(value) > 1e-12):
+        raise ValueError("clarity audio must contain non-silent samples")
     focus = _bandpass(value, sample_rate, 250.0, 5_000.0)
     mid = (focus[:, 0] + focus[:, 1]) / np.sqrt(2.0)
     side = (focus[:, 0] - focus[:, 1]) / np.sqrt(2.0)
@@ -99,6 +103,19 @@ def evaluate_clarity_gate(metrics: Mapping[str, object]) -> dict[str, object]:
     mid_side_delta = float(metrics["mid_side_balance_delta_db"])
     crest_delta = float(metrics["crest_delta_db"])
     fast_change_delta = float(metrics["fast_change_delta_db"])
+    band_values = {band: float(band_deltas[band]) for band in CLARITY_GATE_BANDS}
+    named_values = {
+        "mid_side_balance_delta_db": mid_side_delta,
+        "crest_delta_db": crest_delta,
+        "fast_change_delta_db": fast_change_delta,
+        **{f"band_delta_db.{band}": value for band, value in band_values.items()},
+    }
+    non_finite = next(
+        (name for name, value in named_values.items() if not np.isfinite(value)),
+        None,
+    )
+    if non_finite is not None:
+        raise ValueError(f"{non_finite} must be finite")
     if abs(mid_side_delta) > CLARITY_GATE_THRESHOLDS["maximum_mid_side_balance_delta_db"]:
         failures.append("mid_side_balance_delta_db")
     if crest_delta < CLARITY_GATE_THRESHOLDS["minimum_crest_delta_db"]:
@@ -106,7 +123,7 @@ def evaluate_clarity_gate(metrics: Mapping[str, object]) -> dict[str, object]:
     if fast_change_delta < CLARITY_GATE_THRESHOLDS["minimum_fast_change_delta_db"]:
         failures.append("fast_change_delta_db")
     for band in CLARITY_GATE_BANDS:
-        if abs(float(band_deltas[band])) > CLARITY_GATE_THRESHOLDS["maximum_absolute_band_delta_db"]:
+        if abs(band_values[band]) > CLARITY_GATE_THRESHOLDS["maximum_absolute_band_delta_db"]:
             failures.append(f"band_delta_db.{band}")
     return {
         "pass": not failures,
