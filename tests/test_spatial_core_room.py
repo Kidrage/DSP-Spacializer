@@ -22,3 +22,17 @@ def test_balanced_depth_uses_first_order_image_sources_after_8_ms():
         item.delay_ms for item in reflections
     )
     assert reflections[0].delay_ms == pytest.approx(8.16, abs=0.05)
+
+
+def test_balanced_depth_rejects_sources_outside_room():
+    source = SpatialObject(
+        "outside",
+        "front",
+        np.zeros(16, dtype=np.float32),
+        azimuth_deg=0.0,
+        elevation_deg=0.0,
+        distance_m=4.0,
+    )
+
+    with pytest.raises(ValueError, match="source lies outside the room"):
+        balanced_depth_reflections(source)

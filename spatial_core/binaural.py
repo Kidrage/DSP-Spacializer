@@ -21,6 +21,7 @@ EARLY_DELAYS_MS = np.asarray([4.2, 6.7, 10.8, 16.5, 24.0, 33.0], dtype=float)
 EARLY_LEVELS_DB = np.asarray([-22.0, -23.5, -25.0, -27.0, -29.0, -31.0], dtype=float)
 EARLY_AZIMUTH_OFFSETS = np.asarray([-38.0, 42.0, 96.0, -112.0, 154.0, -166.0])
 EARLY_ELEVATION_OFFSETS = np.asarray([0.0, 8.0, -6.0, 12.0, -10.0, 5.0])
+BALANCED_REFERENCE_DIRECT_RATIO = 0.78
 
 
 def distance_gain_db(distance_m: float) -> float:
@@ -101,13 +102,15 @@ def _late_reverb_foa(
     start_s: float = 0.03,
     level_db: float | None = None,
     band_limits_hz: tuple[float, float] | None = None,
+    decay_from_start: bool = False,
 ) -> np.ndarray:
     """Create a deterministic shaped late FOA field."""
 
     length = max(1, int(round(float(length_s) * sample_rate)))
     start = int(round(float(start_s) * sample_rate))
     time = np.arange(length, dtype=np.float64) / sample_rate
-    envelope = 10.0 ** (-3.0 * np.maximum(0.0, time - float(start_s)) / float(rt60_s))
+    decay_time = np.maximum(0.0, time - float(start_s)) if decay_from_start else time
+    envelope = 10.0 ** (-3.0 * decay_time / float(rt60_s))
     rng = np.random.default_rng(32)
     output = np.zeros((audio.size + length - 1, 4), dtype=np.float32)
     target_norm = 0.08 if level_db is None else 10.0 ** (float(level_db) / 20.0)
@@ -123,6 +126,41 @@ def _late_reverb_foa(
             kernel *= target_norm / norm
         output[:, channel] = fftconvolve(audio, kernel, mode="full")
     return output
+
+
+def _balanced_wet_gain(direct_ratio: float) -> float:
+    reference_wet = np.sqrt(1.0 - BALANCED_REFERENCE_DIRECT_RATIO)
+    return float(np.sqrt(max(0.0, 1.0 - direct_ratio)) / reference_wet)
+
+
+def _match_mastered_loudness(
+    output: np.ndarray,
+    scene: SpatialScene,
+) -> tuple[np.ndarray, float, bool]:
+    target_rms = scene.metadata.get("mastered_reference_rms")
+    if isinstance(target_rms, bool) or not isinstance(target_rms, (int, float)):
+        return output, 0.0, False
+    target_rms = float(target_rms)
+    active = output[: scene.num_frames]
+    current_rms = float(np.sqrt(np.mean(active.astype(np.float64) ** 2)))
+    if not np.isfinite(target_rms) or target_rms <= 0.0 or current_rms <= 0.0:
+        return output, 0.0, False
+    requested_gain = float(
+        np.clip(
+            target_rms / current_rms,
+            10.0 ** (-6.0 / 20.0),
+            10.0 ** (8.0 / 20.0),
+        )
+    )
+    peak = float(np.max(np.abs(output)))
+    headroom_gain = 0.98 / peak if peak > 0.0 else requested_gain
+    gain = min(requested_gain, headroom_gain)
+    peak_limited = gain < requested_gain - 1e-9
+    return (
+        np.asarray(output * gain, dtype=np.float32),
+        float(20.0 * np.log10(gain)),
+        peak_limited,
+    )
 
 
 class SofaBinauralRenderer:
@@ -233,7 +271,9 @@ class SofaBinauralRenderer:
                         balanced_last_early_ms,
                         balanced_reflections[-1].delay_ms,
                     )
-                balanced_room_send = 10.0 ** (-3.0 / 20.0) if item.role == "center" else 1.0
+                balanced_room_send = _balanced_wet_gain(direct_ratio)
+                if item.role == "center":
+                    balanced_room_send *= 10.0 ** (-3.0 / 20.0)
                 reflection_norm = np.linalg.norm(
                     [reflection.relative_gain for reflection in balanced_reflections]
                 )
@@ -308,6 +348,7 @@ class SofaBinauralRenderer:
                     start_s=late_start_s,
                     level_db=self.profile.late_reverb_level_db,
                     band_limits_hz=(180.0, 8_000.0),
+                    decay_from_start=True,
                 )
             else:
                 late_start_s = 0.03
@@ -322,6 +363,9 @@ class SofaBinauralRenderer:
         if np.any(diffuse_foa):
             self._render_foa(database, diffuse_foa, output, scene.sample_rate)
         output = _apply_common_field_compensation(output, database.timbre_compensation_ir)
+        output, mastered_loudness_gain_db, mastered_loudness_peak_limited = (
+            _match_mastered_loudness(output, scene)
+        )
         limited, limiter_report = linked_peak_limiter(output, scene.sample_rate)
         limiter_gain = 10.0 ** (-float(limiter_report["max_gain_reduction_db"]) / 20.0)
         if self.room_profile == "balanced-depth":
@@ -339,6 +383,7 @@ class SofaBinauralRenderer:
                 "late_highpass_hz": 180.0,
                 "late_lowpass_hz": 8_000.0,
                 "center_room_send_db": -3.0,
+                "reference_direct_ratio": BALANCED_REFERENCE_DIRECT_RATIO,
             }
         elif self.room_enabled:
             room_diagnostics = {
@@ -364,6 +409,8 @@ class SofaBinauralRenderer:
             "hrtf_compensation_phase": "minimum",
             "hrtf_compensation_max_boost_db": database.timbre_compensation_max_boost_db,
             "hrtf_compensation_max_cut_db": database.timbre_compensation_max_cut_db,
+            "mastered_loudness_gain_db": mastered_loudness_gain_db,
+            "mastered_loudness_peak_limited": mastered_loudness_peak_limited,
             "limiter_gain": limiter_gain,
             "limiter": limiter_report,
             "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",

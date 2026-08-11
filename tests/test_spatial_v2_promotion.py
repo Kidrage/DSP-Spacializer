@@ -1,6 +1,6 @@
 import pytest
 
-from spatial_core import evaluate_promotion_gate
+from spatial_core import evaluate_clarity_gate, evaluate_promotion_gate
 
 
 def _record(track_id, externalization_delta=0.5, depth_delta=0.5, clarity_delta=0.0):
@@ -29,3 +29,44 @@ def test_promotion_gate_blocks_large_timbre_regression():
     )
     assert result["promote"] is False
     assert result["worst_timbre_regression"] == pytest.approx(0.6)
+
+
+def test_clarity_gate_checks_width_transients_and_four_bands():
+    passing = evaluate_clarity_gate(
+        {
+            "mid_side_balance_delta_db": 0.8,
+            "crest_delta_db": -0.9,
+            "fast_change_delta_db": -0.4,
+            "band_delta_db": {
+                "sub": -1.9,
+                "bass": 1.0,
+                "low_mid": 1.8,
+                "presence": -1.7,
+            },
+        }
+    )
+    failing = evaluate_clarity_gate(
+        {
+            "mid_side_balance_delta_db": 1.2,
+            "crest_delta_db": -1.1,
+            "fast_change_delta_db": -0.6,
+            "band_delta_db": {
+                "sub": -2.1,
+                "bass": 0.0,
+                "low_mid": 2.2,
+                "presence": 2.5,
+            },
+        }
+    )
+
+    assert passing["pass"] is True
+    assert passing["failures"] == []
+    assert failing["pass"] is False
+    assert set(failing["failures"]) == {
+        "mid_side_balance_delta_db",
+        "crest_delta_db",
+        "fast_change_delta_db",
+        "band_delta_db.sub",
+        "band_delta_db.low_mid",
+        "band_delta_db.presence",
+    }

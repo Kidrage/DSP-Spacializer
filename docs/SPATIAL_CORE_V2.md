@@ -31,9 +31,11 @@ lossless M/S seven-zone scene + AmbiX FOA bed
 - Distance is bounded to 0.1–10 m. Both backends apply gain and air absorption;
   the binaural backend additionally applies DRR, early reflections, and the
   late field.
-- Stereo-built scenes compensate the common mastered-program distance gain
-  across objects and the FOA bed. Distance remains audible through DRR,
-  reflection timing, direction, and air absorption instead of a quieter file.
+- Stereo-built scenes retain the input program RMS as scene metadata. After
+  object and bed summation, one bounded global gain matches that mastered
+  reference before limiting. No per-object or FOA-bed distance makeup is used,
+  so their intended balance is preserved while distance remains audible through
+  DRR, reflection timing, direction, and air absorption.
 - Object size spreads amplitude-normalized coherent rays, so changing size does
   not raise the source level. Diffusion uses an equal-power positional/diffuse
   split.
@@ -100,7 +102,9 @@ room; `off` disables room rendering. `balanced-depth` uses first-order image
 sources in a fixed 6 x 5 x 3 m room, rejects reflections earlier than 8 ms,
 starts the late field 10 ms after the last early reflection, and limits the
 late field to 180 Hz–8 kHz. Center-anchor room send is 3 dB below other front
-objects. `--speaker-layout` accepts the public layout format shown in
+objects. `direct_ratio` scales both early and late wet sends around the default
+0.78 reference. Sources outside the modeled room fail validation.
+`--speaker-layout` accepts the public layout format shown in
 `examples/quad_layout_example.json`.
 
 ## Compact spatial profile
@@ -121,7 +125,8 @@ static clarity/depth candidate:
 | `late_reverb_level_db` | -27 | -40 to -12 |
 | `late_rt60_s` | 0.35 | 0.15–1.20 |
 
-Unknown keys and out-of-range values fail before rendering. The example is
+Unknown top-level or parameter keys, non-numeric values, and out-of-range
+values fail before rendering. The example is
 `profiles/spatial_core_balanced_depth.json`.
 
 ## Scene interchange
@@ -184,3 +189,8 @@ meet all criteria:
 The optional feedback dimensions are `externalization`,
 `distance_naturalness`, `front_back_accuracy`, and `head_motion_stability`.
 Existing V1 feedback records remain valid.
+
+Before subjective promotion, each candidate also runs the objective clarity
+gate: absolute M/S-balance delta ≤ 1 dB, crest delta ≥ -1 dB, fast-change delta
+≥ -0.5 dB, and absolute sub/bass/low-mid/presence deltas ≤ 2 dB. A failed
+objective gate remains a listening candidate and is not promoted.

@@ -16,6 +16,7 @@ from spatial_core import (
     SpatialScene,
     build_scene,
 )
+from spatial_core.binaural import _late_reverb_foa, _match_mastered_loudness
 
 
 def _write_test_sofa(path, directions=None):
@@ -322,6 +323,105 @@ def test_balanced_depth_reduces_center_room_send_by_three_db(tmp_path):
     assert np.linalg.norm(center_room) / np.linalg.norm(front_room) == pytest.approx(
         10.0 ** (-3.0 / 20.0), rel=0.02
     )
+
+
+def test_balanced_depth_direct_ratio_controls_wet_send(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    signal = np.zeros(1024, dtype=np.float32)
+    signal[128] = 0.005
+
+    def room_residual(direct_ratio):
+        wet_scene = SpatialScene(
+            48_000,
+            [SpatialObject("lead", "front", signal, 0, 0, 1.6, direct_ratio=direct_ratio)],
+        )
+        wet = SofaBinauralRenderer(
+            tmp_path / "test.sofa",
+            room_profile="balanced-depth",
+            profile=SpatialCoreProfile(),
+        ).render(wet_scene).audio
+        dry_gain_db = 20.0 * np.log10(np.sqrt(direct_ratio))
+        dry_scene = SpatialScene(
+            48_000,
+            [SpatialObject("lead", "front", signal, 0, 0, 1.6, gain_db=dry_gain_db)],
+        )
+        dry = SofaBinauralRenderer(tmp_path / "test.sofa", room_enabled=False).render(
+            dry_scene
+        ).audio
+        dry = np.pad(dry, ((0, wet.shape[0] - dry.shape[0]), (0, 0)))
+        return wet - dry
+
+    with pytest.warns(RuntimeWarning):
+        wetter = room_residual(0.5)
+    with pytest.warns(RuntimeWarning):
+        drier = room_residual(0.9)
+
+    assert np.linalg.norm(wetter) / np.linalg.norm(drier) == pytest.approx(
+        np.sqrt((1.0 - 0.5) / (1.0 - 0.9)), rel=0.03
+    )
+
+
+def test_small_dry_late_reverb_keeps_legacy_decay_origin():
+    sample_rate = 1_000
+    impulse = np.asarray([1.0], dtype=np.float32)
+
+    result = _late_reverb_foa(
+        impulse,
+        sample_rate,
+        rt60_s=0.30,
+        length_s=0.10,
+        start_s=0.03,
+    )
+
+    time = np.arange(100, dtype=np.float64) / sample_rate
+    envelope = 10.0 ** (-3.0 * time / 0.30)
+    kernel = np.random.default_rng(32).standard_normal(100) * envelope
+    kernel[:30] = 0.0
+    kernel *= 0.08 / np.linalg.norm(kernel)
+    assert result[:, 0] == pytest.approx(kernel, abs=1e-7)
+
+
+def test_builder_scene_matches_mastered_input_rms_before_limiter(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    sample_rate = 48_000
+    time = np.arange(8_192, dtype=np.float64) / sample_rate
+    stereo = np.stack(
+        [
+            0.015 * np.sin(2.0 * np.pi * 220.0 * time),
+            0.012 * np.sin(2.0 * np.pi * 330.0 * time),
+        ],
+        axis=1,
+    ).astype(np.float32)
+    scene = build_scene(stereo, sample_rate=sample_rate)
+
+    result = SofaBinauralRenderer(
+        tmp_path / "test.sofa",
+        room_profile="off",
+        room_enabled=False,
+        block_size=8_192,
+    ).render(scene)
+
+    source_rms = np.sqrt(np.mean(stereo.astype(np.float64) ** 2))
+    output_rms = np.sqrt(
+        np.mean(result.audio[: stereo.shape[0]].astype(np.float64) ** 2)
+    )
+    assert output_rms == pytest.approx(source_rms, rel=0.01)
+    assert abs(result.diagnostics["mastered_loudness_gain_db"]) > 0.1
+
+
+def test_mastered_loudness_match_preserves_peak_headroom():
+    output = np.zeros((100, 2), dtype=np.float32)
+    output[50] = 1.0
+    scene = SpatialScene(
+        48_000,
+        [SpatialObject("reference", "front", np.zeros(100, dtype=np.float32))],
+        metadata={"mastered_reference_rms": 1.0},
+    )
+
+    matched, _gain_db, peak_limited = _match_mastered_loudness(output, scene)
+
+    assert np.max(np.abs(matched)) == pytest.approx(0.98)
+    assert peak_limited is True
 
 
 def test_seeded_micro_motion_is_bounded_and_repeatable():

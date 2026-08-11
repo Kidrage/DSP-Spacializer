@@ -45,6 +45,8 @@ def balanced_depth_reflections(
     """Return audible first-order image sources in a fixed 6 x 5 x 3 m room."""
 
     source = LISTENER_POSITION_M + _source_vector(item)
+    if np.any(source < 0.0) or np.any(source > ROOM_DIMENSIONS_M):
+        raise ValueError("balanced-depth source lies outside the room")
     walls = (
         ("back", 0, 0.0, 0.72),
         ("front", 0, ROOM_DIMENSIONS_M[0], 0.72),

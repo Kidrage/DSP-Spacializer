@@ -62,5 +62,5 @@ def test_builder_applies_compact_front_spatial_parameters():
     assert objects["front_L_residual"].azimuth_deg == 48.0
     assert objects["front_R_residual"].azimuth_deg == -48.0
     assert all(item.direct_ratio == 0.7 for item in scene.objects)
-    assert all(item.gain_db == pytest.approx(20.0 * np.log10(2.2)) for item in scene.objects)
-    assert scene.metadata["mastered_distance_compensation"] is True
+    assert all(item.gain_db == 0.0 for item in scene.objects)
+    assert scene.metadata["mastered_reference_rms"] == pytest.approx(0.0)

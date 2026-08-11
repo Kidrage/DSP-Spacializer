@@ -13,6 +13,40 @@ TIMBRE_UTILITY_DIRECTIONS = {
     "mud": -1.0,
 }
 
+CLARITY_GATE_THRESHOLDS = {
+    "maximum_mid_side_balance_delta_db": 1.0,
+    "minimum_crest_delta_db": -1.0,
+    "minimum_fast_change_delta_db": -0.5,
+    "maximum_absolute_band_delta_db": 2.0,
+}
+CLARITY_GATE_BANDS = ("sub", "bass", "low_mid", "presence")
+
+
+def evaluate_clarity_gate(metrics: Mapping[str, object]) -> dict[str, object]:
+    """Classify objective timbre/clarity deltas for one rendered candidate."""
+
+    band_deltas = metrics.get("band_delta_db")
+    if not isinstance(band_deltas, Mapping):
+        raise ValueError("clarity metrics require band_delta_db")
+    failures: list[str] = []
+    mid_side_delta = float(metrics["mid_side_balance_delta_db"])
+    crest_delta = float(metrics["crest_delta_db"])
+    fast_change_delta = float(metrics["fast_change_delta_db"])
+    if abs(mid_side_delta) > CLARITY_GATE_THRESHOLDS["maximum_mid_side_balance_delta_db"]:
+        failures.append("mid_side_balance_delta_db")
+    if crest_delta < CLARITY_GATE_THRESHOLDS["minimum_crest_delta_db"]:
+        failures.append("crest_delta_db")
+    if fast_change_delta < CLARITY_GATE_THRESHOLDS["minimum_fast_change_delta_db"]:
+        failures.append("fast_change_delta_db")
+    for band in CLARITY_GATE_BANDS:
+        if abs(float(band_deltas[band])) > CLARITY_GATE_THRESHOLDS["maximum_absolute_band_delta_db"]:
+            failures.append(f"band_delta_db.{band}")
+    return {
+        "pass": not failures,
+        "failures": failures,
+        "thresholds": dict(CLARITY_GATE_THRESHOLDS),
+    }
+
 
 def evaluate_promotion_gate(records: Sequence[Mapping[str, object]]) -> dict[str, object]:
     """Evaluate the S1 listening gate across paired legacy/V2 score records."""

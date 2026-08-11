@@ -46,26 +46,24 @@ def build_scene(
         raise ValueError("stereo input must be shaped [frames, 2]")
     settings = _resolve_profile(profile)
     zones = extract_spatial_zones(audio, sample_rate=int(sample_rate), profile=settings)
-    distance_makeup_db = 20.0 * np.log10(settings.front_distance_m)
     objects = [
         SpatialObject(
             "bass", "bass", zones.bass, 0.0, 0.0, settings.front_distance_m,
-            gain_db=distance_makeup_db, size=0.05, direct_ratio=settings.direct_ratio,
+            size=0.05, direct_ratio=settings.direct_ratio,
         ),
         SpatialObject(
             "center_anchor", "center", zones.center_anchor, 0.0, 0.0,
-            settings.front_distance_m, gain_db=distance_makeup_db,
-            size=0.0, direct_ratio=settings.direct_ratio,
+            settings.front_distance_m, size=0.0, direct_ratio=settings.direct_ratio,
         ),
         SpatialObject(
             "front_L_residual", "front", zones.front_L_residual,
             settings.front_width_deg, 0.0, settings.front_distance_m,
-            gain_db=distance_makeup_db, size=0.05, direct_ratio=settings.direct_ratio,
+            size=0.05, direct_ratio=settings.direct_ratio,
         ),
         SpatialObject(
             "front_R_residual", "front", zones.front_R_residual,
             -settings.front_width_deg, 0.0, settings.front_distance_m,
-            gain_db=distance_makeup_db, size=0.05, direct_ratio=settings.direct_ratio,
+            size=0.05, direct_ratio=settings.direct_ratio,
         ),
     ]
     bed = np.zeros((audio.shape[0], 4), dtype=np.float32)
@@ -75,13 +73,14 @@ def build_scene(
     bed += encode_mono_foa(-zones.rear_ambience, -135.0, 0.0, settings.bed_rear_gain)
     bed += encode_mono_foa(zones.high_air, 110.0, 35.0, settings.bed_air_gain)
     bed += encode_mono_foa(-zones.high_air, -110.0, 35.0, settings.bed_air_gain)
-    bed *= settings.front_distance_m
     metadata: dict[str, object] = {
         "source": "dsp_bus_builder",
         "builder_version": "2.1",
         "zones": list(zones.names),
         "profile": asdict(settings),
-        "mastered_distance_compensation": True,
+        "mastered_reference_rms": float(
+            np.sqrt(np.mean(audio.astype(np.float64) ** 2))
+        ),
         "objects_static": True,
         "directivity": "omni",
     }

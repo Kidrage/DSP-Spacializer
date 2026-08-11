@@ -54,6 +54,41 @@ def test_spatial_profile_rejects_unknown_parameters(tmp_path):
         load_spatial_profile(path)
 
 
+def test_spatial_profile_rejects_unknown_top_level_keys(tmp_path):
+    path = tmp_path / "unknown-top-level.json"
+    path.write_text(
+        json.dumps(
+            {
+                "format": "spatial_core_profile",
+                "version": "1.0",
+                "parameters": {},
+                "notes": "not part of the strict schema",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="unknown spatial profile field"):
+        load_spatial_profile(path)
+
+
+def test_spatial_profile_rejects_boolean_parameter_values(tmp_path):
+    path = tmp_path / "boolean.json"
+    path.write_text(
+        json.dumps(
+            {
+                "format": "spatial_core_profile",
+                "version": "1.0",
+                "parameters": {"center_anchor": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="center_anchor must be numeric"):
+        load_spatial_profile(path)
+
+
 @pytest.mark.parametrize(
     ("name", "value"),
     [

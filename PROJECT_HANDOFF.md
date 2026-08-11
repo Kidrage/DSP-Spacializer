@@ -9,12 +9,12 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-11T04:31:40.308358+00:00`
+- Generated at: `2026-08-11T04:45:58.189241+00:00`
 
 ## Current State
 
 - Branch: `feat/spatial-core-v2p1-depth-clarity`
-- HEAD: `8e4041f`
+- HEAD: `8566d3f`
 - Indexed paths: 105
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -60,8 +60,8 @@
 
 ### Categories
 
-- code: 68 files, 402185 bytes
-- literature: 24 files, 171646 bytes
+- code: 68 files, 411815 bytes
+- literature: 24 files, 173596 bytes
 - other: 3 files, 81607 bytes
 - structured_data: 10 files, 7076 bytes
 
@@ -89,6 +89,7 @@
 
 ## Change History
 
+- `8566d3f 2026-08-11 feat: add Spatial Core V2.1 clarity and depth`
 - `8e4041f 2026-08-11 Merge pull request #6 from Kidrage/fix/binaural-timbre-preservation`
 - `1831844 2026-08-11 docs: refresh binaural fix handoff`
 - `98d462b 2026-08-11 test: preserve binaural interaural cues`
@@ -108,34 +109,24 @@
 - `647e724 2026-06-29 Freeze Phase 5A V3.2 stable baseline`
 - `1fd9d4c 2026-06-24 implement Phase 5A listening candidates and calibration`
 - `65d65d5 2026-06-18 docs: update README with bilingual feedback loop guide`
-- `b4a3ad1 2026-06-18 docs(feedback): add feedback loop commands to README`
 
 ## Current Changes
 
 - `## feat/spatial-core-v2p1-depth-clarity`
-- `M  .codex/MAINLINE.md`
-- `M  .codex/REPO_GUIDE.md`
-- ` M .codex/repo_files.txt`
-- ` M .codex/source_index.txt`
+- ` M CLAUDE.md`
 - ` M PROJECT_HANDOFF.md`
-- `M  README.md`
-- `M  docs/SPATIAL_CORE_V2.md`
-- `A  profiles/spatial_core_balanced_depth.json`
-- `M  run_spatializer.py`
-- `M  spatial_core/__init__.py`
-- `M  spatial_core/binaural.py`
-- `M  spatial_core/builder.py`
-- `M  spatial_core/hrtf.py`
-- `A  spatial_core/profile.py`
-- `A  spatial_core/room.py`
-- `M  spatial_core/workflow.py`
-- `A  spatial_core/zones.py`
-- `M  tests/test_spatial_core_binaural.py`
-- `M  tests/test_spatial_core_foa.py`
-- `A  tests/test_spatial_core_profile.py`
-- `A  tests/test_spatial_core_room.py`
-- `A  tests/test_spatial_core_zones.py`
-- `M  tests/test_spatial_v2_cli.py`
+- ` M docs/SPATIAL_CORE_V2.md`
+- ` M spatial_core/__init__.py`
+- ` M spatial_core/binaural.py`
+- ` M spatial_core/builder.py`
+- ` M spatial_core/evaluation.py`
+- ` M spatial_core/profile.py`
+- ` M spatial_core/room.py`
+- ` M tests/test_spatial_core_binaural.py`
+- ` M tests/test_spatial_core_foa.py`
+- ` M tests/test_spatial_core_profile.py`
+- ` M tests/test_spatial_core_room.py`
+- ` M tests/test_spatial_v2_promotion.py`
 
 ## Related Repositories
 
@@ -215,17 +206,20 @@
   audio remains untracked by repository policy.
 - Validation at `98d462b`: 91 pytest tests and focused Ruff checks passed; the
   measured KEMAR equal-tone check is within 1.7 dB of 1 kHz from 50 Hz to 8 kHz.
-- 2026-08-11: V2.1 adds lossless seven-zone M/S construction, compact profile
-  validation, the opt-in geometry-based `balanced-depth` room, minimum-phase
-  common-field correction, and mastered-program distance compensation. Legacy,
-  scene-manifest, `small-dry`, and `off` paths remain compatible.
-- Final three-track listening renders and evidence are external at
-  `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_core_v2p1_candidates_final/`;
-  generated audio remains untracked. All files are 48 kHz stereo float WAV.
-- Pre-review validation: 112 pytest tests, focused Ruff, text-integrity, and
-  `git diff --check` pass. The 30–40 s diagnostic shows restored vocal crest
-  and fast-change behavior; the wide orchestral candidate still needs human
-  review for presence emphasis and binaural width change.
+- 2026-08-11: V2.1 adds lossless seven-zone M/S construction, a strict compact
+  profile, the opt-in geometry-based `balanced-depth` room, minimum-phase
+  common-field correction, and post-sum mastered-RMS matching constrained by
+  peak headroom. Legacy, scene-manifest, `small-dry`, and `off` paths remain
+  compatible.
+- Reviewed three-track listening renders and evidence are external at
+  `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_core_v2p1_candidates_reviewed/`;
+  generated audio remains untracked. All files are 48 kHz stereo float WAV,
+  and the limiter is inactive for all three after peak-aware gain matching.
+- Validation: 120 pytest tests, focused Ruff, text-integrity, and
+  `git diff --check` pass. The objective clarity gate remains RED: all three
+  exceed the 1 dB M/S-balance delta; the wide orchestral candidate also fails
+  crest, low-mid, and presence thresholds. These are audition candidates, not
+  promoted defaults.
 <!-- AGENT_NOTES_END -->
 
 ## Mandatory Update Rule

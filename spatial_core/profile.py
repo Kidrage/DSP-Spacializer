@@ -10,6 +10,7 @@ import json
 
 PROFILE_FORMAT = "spatial_core_profile"
 PROFILE_VERSION = "1.0"
+PROFILE_FIELDS = {"format", "version", "parameters"}
 
 PARAMETER_RANGES = {
     "center_anchor": (0.0, 1.0),
@@ -53,6 +54,9 @@ def load_spatial_profile(path: str | Path) -> SpatialCoreProfile:
         raise ValueError(f"unable to read spatial profile: {profile_path}") from exc
     if not isinstance(payload, dict):
         raise ValueError("spatial profile must be a JSON object")
+    unknown_fields = sorted(set(payload) - PROFILE_FIELDS)
+    if unknown_fields:
+        raise ValueError(f"unknown spatial profile field: {unknown_fields[0]}")
     if payload.get("format") != PROFILE_FORMAT or payload.get("version") != PROFILE_VERSION:
         raise ValueError("spatial profile must use spatial_core_profile version 1.0")
     parameters = payload.get("parameters", {})
@@ -63,8 +67,10 @@ def load_spatial_profile(path: str | Path) -> SpatialCoreProfile:
     if unknown:
         raise ValueError(f"unknown spatial profile parameter: {unknown[0]}")
     defaults = SpatialCoreProfile()
-    values = {
-        item.name: float(parameters.get(item.name, getattr(defaults, item.name)))
-        for item in fields(SpatialCoreProfile)
-    }
+    values: dict[str, float] = {}
+    for item in fields(SpatialCoreProfile):
+        raw_value = parameters.get(item.name, getattr(defaults, item.name))
+        if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
+            raise ValueError(f"{item.name} must be numeric")
+        values[item.name] = float(raw_value)
     return SpatialCoreProfile(**values)
