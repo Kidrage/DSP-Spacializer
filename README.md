@@ -8,7 +8,7 @@ DSP-Spacializer contains a stable, non-AI legacy stereo-to-4.0/binaural DSP rend
 [LF, RF, LB, RB]
 ```
 
-Spatial Core V2 creates static DSP-bus objects plus an AmbiX FOA bed, then renders the same scene to measured-SOFA binaural or FOA/VBAP quad backends. It does not perform AI source separation. See [Spatial Core V2 S1](docs/SPATIAL_CORE_V2.md).
+Spatial Core V2.1 creates a lossless M/S seven-zone scene plus an AmbiX FOA bed, then renders the same scene to measured-SOFA binaural or FOA/VBAP quad backends. It does not perform AI source separation. See [Spatial Core V2.1](docs/SPATIAL_CORE_V2.md).
 
 ## 中文
 
@@ -18,7 +18,7 @@ DSP-Spacializer 同时包含稳定的 legacy stereo→4.0/binaural DSP 渲染器
 [LF, RF, LB, RB]
 ```
 
-Spatial Core V2 把 DSP bus 组织成静态对象与 AmbiX FOA 声床，同一场景可输出真实 SOFA 双耳或 FOA/VBAP 四声道；它不做 AI 源分离。详见 [Spatial Core V2 S1](docs/SPATIAL_CORE_V2.md)。
+Spatial Core V2.1 把 stereo 无损分解为七个 M/S 声场区域与 AmbiX FOA 声床，同一场景可输出真实 SOFA 双耳或 FOA/VBAP 四声道；它不做 AI 源分离。详见 [Spatial Core V2.1](docs/SPATIAL_CORE_V2.md)。
 
 ---
 

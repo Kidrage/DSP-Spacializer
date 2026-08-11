@@ -9,13 +9,13 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-11T02:30:27.200730+00:00`
+- Generated at: `2026-08-11T04:31:40.308358+00:00`
 
 ## Current State
 
-- Branch: `fix/binaural-timbre-preservation`
-- HEAD: `98d462b`
-- Indexed paths: 98
+- Branch: `feat/spatial-core-v2p1-depth-clarity`
+- HEAD: `8e4041f`
+- Indexed paths: 105
 - Inventory truncated: `false`
 - Inaccessible paths: 0
 - Scan mode: complete path/metadata inventory; no bulk content read; no symlink traversal.
@@ -44,32 +44,32 @@
 | Route | Files |
 |---|---:|
 | `.` | 45 |
-| `tests` | 19 |
-| `spatial_core` | 12 |
+| `tests` | 22 |
+| `spatial_core` | 15 |
 | `.codex` | 4 |
 | `config` | 4 |
 | `docs` | 4 |
 | `scripts` | 4 |
 | `examples` | 3 |
+| `profiles` | 2 |
 | `.github` | 1 |
 | `.github/workflows` | 1 |
 | `input_audio` | 1 |
-| `profiles` | 1 |
 
 ## Data and File Structure
 
 ### Categories
 
-- code: 62 files, 371688 bytes
-- literature: 24 files, 167929 bytes
+- code: 68 files, 402185 bytes
+- literature: 24 files, 171646 bytes
 - other: 3 files, 81607 bytes
-- structured_data: 9 files, 6704 bytes
+- structured_data: 10 files, 7076 bytes
 
 ### Common Extensions
 
-- `.py`: 62
+- `.py`: 68
 - `.md`: 21
-- `.json`: 5
+- `.json`: 6
 - `.yml`: 4
 - `.txt`: 3
 - `[no extension]`: 2
@@ -89,6 +89,8 @@
 
 ## Change History
 
+- `8e4041f 2026-08-11 Merge pull request #6 from Kidrage/fix/binaural-timbre-preservation`
+- `1831844 2026-08-11 docs: refresh binaural fix handoff`
 - `98d462b 2026-08-11 test: preserve binaural interaural cues`
 - `823d5bb 2026-08-11 fix: preserve binaural timbre and gain staging`
 - `f57595b 2026-08-10 Merge pull request #5 from Kidrage/chore/remove-retired-branding`
@@ -107,12 +109,33 @@
 - `1fd9d4c 2026-06-24 implement Phase 5A listening candidates and calibration`
 - `65d65d5 2026-06-18 docs: update README with bilingual feedback loop guide`
 - `b4a3ad1 2026-06-18 docs(feedback): add feedback loop commands to README`
-- `a7036a0 2026-06-18 docs(feedback): describe suggestion loop closure`
-- `084cc8c 2026-06-18 test(feedback): cover profile suggestion rules`
 
 ## Current Changes
 
-- `## fix/binaural-timbre-preservation`
+- `## feat/spatial-core-v2p1-depth-clarity`
+- `M  .codex/MAINLINE.md`
+- `M  .codex/REPO_GUIDE.md`
+- ` M .codex/repo_files.txt`
+- ` M .codex/source_index.txt`
+- ` M PROJECT_HANDOFF.md`
+- `M  README.md`
+- `M  docs/SPATIAL_CORE_V2.md`
+- `A  profiles/spatial_core_balanced_depth.json`
+- `M  run_spatializer.py`
+- `M  spatial_core/__init__.py`
+- `M  spatial_core/binaural.py`
+- `M  spatial_core/builder.py`
+- `M  spatial_core/hrtf.py`
+- `A  spatial_core/profile.py`
+- `A  spatial_core/room.py`
+- `M  spatial_core/workflow.py`
+- `A  spatial_core/zones.py`
+- `M  tests/test_spatial_core_binaural.py`
+- `M  tests/test_spatial_core_foa.py`
+- `A  tests/test_spatial_core_profile.py`
+- `A  tests/test_spatial_core_room.py`
+- `A  tests/test_spatial_core_zones.py`
+- `M  tests/test_spatial_v2_cli.py`
 
 ## Related Repositories
 
@@ -172,6 +195,7 @@
 - `examples/quad_layout_example.json`
 - `examples/subjective_score_example.json`
 - `profiles/quad_4p0_feedback_example.json`
+- `profiles/spatial_core_balanced_depth.json`
 - `spatial_quality_thresholds.json`
 
 ## Validation and Risks
@@ -191,6 +215,17 @@
   audio remains untracked by repository policy.
 - Validation at `98d462b`: 91 pytest tests and focused Ruff checks passed; the
   measured KEMAR equal-tone check is within 1.7 dB of 1 kHz from 50 Hz to 8 kHz.
+- 2026-08-11: V2.1 adds lossless seven-zone M/S construction, compact profile
+  validation, the opt-in geometry-based `balanced-depth` room, minimum-phase
+  common-field correction, and mastered-program distance compensation. Legacy,
+  scene-manifest, `small-dry`, and `off` paths remain compatible.
+- Final three-track listening renders and evidence are external at
+  `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_core_v2p1_candidates_final/`;
+  generated audio remains untracked. All files are 48 kHz stereo float WAV.
+- Pre-review validation: 112 pytest tests, focused Ruff, text-integrity, and
+  `git diff --check` pass. The 30–40 s diagnostic shows restored vocal crest
+  and fast-change behavior; the wide orchestral candidate still needs human
+  review for presence emphasis and binaural width change.
 <!-- AGENT_NOTES_END -->
 
 ## Mandatory Update Rule

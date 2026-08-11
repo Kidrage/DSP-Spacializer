@@ -21,7 +21,7 @@ Deterministic, non-AI spatializer with a frozen legacy stereo-to-fixed-4.0/binau
 - `run_feedback_spatializer.py`, `subjective_feedback.py`, `tuning_profile.py`: external listener-feedback loop.
 - `auto_refine.py`, `threshold_calibrator.py`, `config/`: deterministic refinement and calibration.
 - `tests/test_v32_candidate.py`: focused V3.2 regression contract.
-- `spatial_core/`: V2 scene interchange, DSP-bus builder, SOFA binaural, listener motion, quad VBAP, and CTC adapter.
+- `spatial_core/`: V2 scene interchange, lossless seven-zone M/S builder, compact profile, geometry room, SOFA binaural, listener motion, quad VBAP, and CTC adapter.
 - `docs/SPATIAL_CORE_V2.md`: V2 contracts, formats, CLI, and promotion gate.
 
 ## Commands
@@ -39,6 +39,8 @@ python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic
 - V3.2 is frozen and experimental candidates are disabled by default.
 - Do not add raw center send to legacy rear channels. New scene-renderer work belongs in the unified `spatial_core` package and must remain opt-in until promoted.
 - V2 binaural requires measured `SimpleFreeFieldHRIR` SOFA data; no procedural fallback or bundled dataset.
+- V2.1 stereo scenes use `spatial_core_profile` 1.0 and can opt into the
+  `balanced-depth` room. Keep `small-dry` and `off` compatible.
 - Avoid `input_audio/` payloads, `outputs/`, workspace-level `曲库/` and `Output-DSP/`, `.venv/`, caches, notebooks, and binary/audio assets unless explicitly required.
 - Keep generated listener data and suggested tuning profiles external to the stable renderer path.
 

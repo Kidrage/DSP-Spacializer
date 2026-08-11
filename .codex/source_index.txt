@@ -1,8 +1,8 @@
 # Source Index
 
 Repository: /Users/saintpeter/Desktop/Coding/spatializer_outputs/dsp-spatializer
-Tracked filtered files: 98
-High-value indexed files: 88
+Tracked filtered files: 105
+High-value indexed files: 95
 
 Read this file before broad repository exploration. Prefer focused `rg`
 or `git grep` against the listed areas before opening source files.
@@ -46,10 +46,13 @@ or `git grep` against the listed areas before opening source files.
 - spatial_core/foa.py
 - spatial_core/hrtf.py
 - spatial_core/motion.py
+- spatial_core/profile.py
 - spatial_core/rendering.py
+- spatial_core/room.py
 - spatial_core/scene.py
 - spatial_core/speaker.py
 - spatial_core/workflow.py
+- spatial_core/zones.py
 - spatial_quality_report.py
 - spatial_safety.py
 - streaming_analyzer.py
@@ -69,8 +72,11 @@ or `git grep` against the listed areas before opening source files.
 - tests/test_run_spatializer_cli.py
 - tests/test_spatial_core_binaural.py
 - tests/test_spatial_core_foa.py
+- tests/test_spatial_core_profile.py
+- tests/test_spatial_core_room.py
 - tests/test_spatial_core_scene.py
 - tests/test_spatial_core_speaker.py
+- tests/test_spatial_core_zones.py
 - tests/test_spatial_safety.py
 - tests/test_spatial_v2_cli.py
 - tests/test_spatial_v2_promotion.py
@@ -90,6 +96,7 @@ or `git grep` against the listed areas before opening source files.
 - examples/quad_layout_example.json
 - examples/subjective_score_example.json
 - profiles/quad_4p0_feedback_example.json
+- profiles/spatial_core_balanced_depth.json
 - spatial_quality_thresholds.json
 
 ## docs

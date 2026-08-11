@@ -1,4 +1,4 @@
-# Spatial Core V2 S1
+# Spatial Core V2.1: clarity and depth
 
 Spatial Core V2 is the opt-in object/soundfield architecture. The legacy V3.2
 fixed-channel renderer remains the default and the listening baseline.
@@ -6,7 +6,7 @@ fixed-channel renderer remains the default and the listening baseline.
 ```text
 stereo or scene manifest
         |
-DSP bus objects + AmbiX FOA bed
+lossless M/S seven-zone scene + AmbiX FOA bed
         |
         +-- measured-SOFA binaural renderer -- optional legacy CTC adapter
         |
@@ -15,7 +15,14 @@ DSP bus objects + AmbiX FOA bed
 
 ## Scope and invariants
 
-- V2.0 objects are static, mono, omnidirectional sources.
+- V2.1 objects are static, mono, omnidirectional sources.
+- Stereo input uses a 2048-sample Hann STFT with a 512-sample hop. A
+  coherence mask extracts the center anchor; bass and low-body support remain
+  centered, while panned content stays out of the anchor.
+- The seven zones are `bass`, `center_anchor`, `front_L_residual`,
+  `front_R_residual`, `side_width`, `rear_ambience`, and `high_air`. Their dry
+  representation reconstructs the input below -80 dB error. Side, rear, and
+  air use complementary masks instead of overlapping filtered copies.
 - The bed is first-order Ambisonics in AmbiX ACN/SN3D order `W,Y,Z,X`.
 - DSP buses are used as scene material; there is no AI source separation.
 - Binaural rendering requires a real `SimpleFreeFieldHRIR` SOFA file. Missing,
@@ -24,11 +31,14 @@ DSP bus objects + AmbiX FOA bed
 - Distance is bounded to 0.1–10 m. Both backends apply gain and air absorption;
   the binaural backend additionally applies DRR, early reflections, and the
   late field.
+- Stereo-built scenes compensate the common mastered-program distance gain
+  across objects and the FOA bed. Distance remains audible through DRR,
+  reflection timing, direction, and air absorption instead of a quieter file.
 - Object size spreads amplitude-normalized coherent rays, so changing size does
   not raise the source level. Diffusion uses an equal-power positional/diffuse
   split.
 - The binaural output removes the broad frontal common-field coloration of the
-  measured HRIR with one bounded, smoothed filter shared by both ears. This
+  measured HRIR with one bounded, smoothed minimum-phase filter shared by both ears. This
   preserves directional interaural differences while preventing the listener
   dataset from imposing its raw bass roll-off or pinna peak on the mix.
 - A linked attack/release limiter handles local overloads without scaling the
@@ -49,6 +59,17 @@ Render headphones directly from stereo DSP buses:
 python run_spatializer.py input_audio/test_input.wav \
   --engine spatial-v2 \
   --sofa /absolute/path/listener.sofa \
+  --output-mode binaural
+```
+
+Render the clarity/depth candidate with the compact profile and geometry room:
+
+```bash
+python run_spatializer.py input_audio/test_input.wav \
+  --engine spatial-v2 \
+  --sofa /absolute/path/listener.sofa \
+  --spatial-profile profiles/spatial_core_balanced_depth.json \
+  --room-profile balanced-depth \
   --output-mode binaural
 ```
 
@@ -74,9 +95,34 @@ python run_spatializer.py \
 ```
 
 `--micro-motion --motion-seed 7` adds bounded simulated yaw (±5°) and pitch
-(±3°). It is disabled by default. `--room-profile off` disables the fixed
-small/dry early and late field. `--speaker-layout` accepts the public layout
-format shown in `examples/quad_layout_example.json`.
+(±3°). It is disabled by default. `--room-profile small-dry` preserves the S1
+room; `off` disables room rendering. `balanced-depth` uses first-order image
+sources in a fixed 6 x 5 x 3 m room, rejects reflections earlier than 8 ms,
+starts the late field 10 ms after the last early reflection, and limits the
+late field to 180 Hz–8 kHz. Center-anchor room send is 3 dB below other front
+objects. `--speaker-layout` accepts the public layout format shown in
+`examples/quad_layout_example.json`.
+
+## Compact spatial profile
+
+`spatial_core_profile` version 1.0 exposes only the parameters needed for the
+static clarity/depth candidate:
+
+| Parameter | Default | Range |
+|---|---:|---:|
+| `center_anchor` | 0.80 | 0–1 |
+| `front_distance_m` | 1.60 | 0.5–4.0 |
+| `front_width_deg` | 35 | 15–75 |
+| `bed_width_gain` | 0.25 | 0–1 |
+| `bed_rear_gain` | 0.18 | 0–1 |
+| `bed_air_gain` | 0.12 | 0–1 |
+| `direct_ratio` | 0.78 | 0.30–0.95 |
+| `early_reflection_level_db` | -21 | -40 to -10 |
+| `late_reverb_level_db` | -27 | -40 to -12 |
+| `late_rt60_s` | 0.35 | 0.15–1.20 |
+
+Unknown keys and out-of-range values fail before rendering. The example is
+`profiles/spatial_core_balanced_depth.json`.
 
 ## Scene interchange
 
@@ -119,9 +165,9 @@ HRIRs; other directions use inverse-angular three-neighbor interpolation after
 onset and delay alignment. A nearest-direction error above 15° emits a
 diagnostic warning; above 45° fails. The FOA bed is decoded to each ear by a
 regularized first-order spherical-harmonic projection over the measured set.
-After object and bed summation, the same frontal common-field compensation is
-applied to both ears; its boost and cut limits are included in render
-diagnostics.
+After object and bed summation, the same minimum-phase frontal common-field
+compensation is applied to both ears; its boost/cut limits and phase type are
+included in render diagnostics.
 
 Trajectory files use `spatial_core_listener_trajectory` 1.0 with strictly increasing
 time keyframes. Yaw/pitch/roll are interpolated with SLERP and endpoints hold.

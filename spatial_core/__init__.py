@@ -7,13 +7,17 @@ from .evaluation import evaluate_promotion_gate
 from .foa import decode_foa_projection, encode_mono_foa, foa_direction_vector
 from .hrtf import InterpolatedHrir, SofaHrirDatabase
 from .motion import ListenerPose, ListenerTrajectory, MicroMotion
+from .profile import SpatialCoreProfile, load_spatial_profile
 from .rendering import RenderResult, SceneRenderer
+from .room import EarlyReflection, balanced_depth_reflections
 from .speaker import DEFAULT_QUAD_LAYOUT, QuadSpeakerRenderer, Speaker, vbap_gains
 from .scene import FoaBed, SpatialObject, SpatialScene, load_scene, save_scene
+from .zones import SpatialZones, extract_spatial_zones
 
 __all__ = [
     "CtcOutputAdapter",
     "DEFAULT_QUAD_LAYOUT",
+    "EarlyReflection",
     "FoaBed",
     "InterpolatedHrir",
     "ListenerPose",
@@ -26,15 +30,20 @@ __all__ = [
     "SofaHrirDatabase",
     "Speaker",
     "SpatialObject",
+    "SpatialCoreProfile",
     "SpatialScene",
+    "SpatialZones",
     "build_scene",
+    "balanced_depth_reflections",
     "decode_foa_projection",
     "default_direct_ratio",
     "distance_gain_db",
     "encode_mono_foa",
     "evaluate_promotion_gate",
+    "extract_spatial_zones",
     "foa_direction_vector",
     "load_scene",
+    "load_spatial_profile",
     "save_scene",
     "vbap_gains",
 ]

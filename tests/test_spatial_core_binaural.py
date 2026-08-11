@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 import sofar
-from scipy.signal import firwin2
+from scipy.signal import butter, firwin2, sosfiltfilt
 
 from spatial_core import (
     FoaBed,
@@ -11,8 +11,10 @@ from spatial_core import (
     MicroMotion,
     SofaBinauralRenderer,
     SofaHrirDatabase,
+    SpatialCoreProfile,
     SpatialObject,
     SpatialScene,
+    build_scene,
 )
 
 
@@ -155,7 +157,7 @@ def test_binaural_renderer_renders_objects_foa_and_head_motion(tmp_path):
 def test_binaural_renderer_removes_common_hrtf_timbre_coloration(tmp_path):
     _write_colored_test_sofa(tmp_path / "colored.sofa")
     sample_rate = 48_000
-    frequencies = np.asarray([100, 250, 1_000, 3_000, 8_000], dtype=float)
+    frequencies = np.asarray([30, 50, 100, 250, 1_000, 3_000, 8_000], dtype=float)
     time = np.arange(sample_rate, dtype=float) / sample_rate
     signal = np.sum(np.sin(2.0 * np.pi * frequencies[:, None] * time), axis=0)
     signal = np.asarray(0.02 * signal, dtype=np.float32)
@@ -173,9 +175,9 @@ def test_binaural_renderer_removes_common_hrtf_timbre_coloration(tmp_path):
             / mono.size
             * np.hypot(np.dot(mono, np.sin(phase)), np.dot(mono, np.cos(phase)))
         )
-    relative_db = 20.0 * np.log10(np.maximum(amplitudes, 1e-12) / amplitudes[2])
+    relative_db = 20.0 * np.log10(np.maximum(amplitudes, 1e-12) / amplitudes[4])
 
-    assert np.max(np.abs(relative_db)) < 4.0
+    assert np.max(np.abs(relative_db)) < 3.0
     assert result.diagnostics["hrtf_timbre_compensation"] == "front-common-field"
 
 
@@ -197,6 +199,8 @@ def test_common_field_compensation_preserves_interaural_cues(tmp_path):
     )
     assert right_peak - left_peak == 3
     assert interaural_level_ratio == pytest.approx(0.75, rel=0.01)
+    assert max(left_peak, right_peak) < 1_200
+    assert result.diagnostics["hrtf_compensation_phase"] == "minimum"
 
 
 def test_binaural_object_size_does_not_increase_coherent_level(tmp_path):
@@ -258,6 +262,68 @@ def test_room_renderer_preserves_late_tail(tmp_path):
     assert np.max(np.abs(result.audio[256:])) > 0
 
 
+def test_balanced_depth_reports_geometry_and_delays_late_field(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    signal = np.zeros(512, dtype=np.float32)
+    signal[64] = 0.02
+    scene = SpatialScene(
+        48_000,
+        [SpatialObject("lead", "front", signal, 0, 0, 1.6, direct_ratio=0.78)],
+    )
+
+    with pytest.warns(RuntimeWarning, match="SOFA directional coverage is sparse"):
+        result = SofaBinauralRenderer(
+            tmp_path / "test.sofa",
+            room_profile="balanced-depth",
+            profile=SpatialCoreProfile(),
+        ).render(scene)
+
+    room = result.diagnostics["room_profile"]
+    assert room["name"] == "balanced-depth"
+    assert room["dimensions_m"] == [6.0, 5.0, 3.0]
+    assert room["minimum_early_delay_ms"] == 8.0
+    assert room["late_start_s"] >= 0.027
+    assert room["late_highpass_hz"] == 180.0
+    assert room["late_lowpass_hz"] == 8_000.0
+
+
+def test_balanced_depth_reduces_center_room_send_by_three_db(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    signal = np.zeros(1024, dtype=np.float32)
+    signal[128] = 0.005
+    profile = SpatialCoreProfile()
+
+    def room_residual(role):
+        scene = SpatialScene(
+            48_000,
+            [SpatialObject("lead", role, signal, 0, 0, 1.6, direct_ratio=profile.direct_ratio)],
+        )
+        wet = SofaBinauralRenderer(
+            tmp_path / "test.sofa",
+            room_profile="balanced-depth",
+            profile=profile,
+        ).render(scene).audio
+        direct_gain_db = 20.0 * np.log10(np.sqrt(profile.direct_ratio))
+        dry_scene = SpatialScene(
+            48_000,
+            [SpatialObject("lead", role, signal, 0, 0, 1.6, gain_db=direct_gain_db)],
+        )
+        dry = SofaBinauralRenderer(tmp_path / "test.sofa", room_enabled=False).render(
+            dry_scene
+        ).audio
+        dry = np.pad(dry, ((0, wet.shape[0] - dry.shape[0]), (0, 0)))
+        return wet - dry
+
+    with pytest.warns(RuntimeWarning):
+        center_room = room_residual("center")
+    with pytest.warns(RuntimeWarning):
+        front_room = room_residual("front")
+
+    assert np.linalg.norm(center_room) / np.linalg.norm(front_room) == pytest.approx(
+        10.0 ** (-3.0 / 20.0), rel=0.02
+    )
+
+
 def test_seeded_micro_motion_is_bounded_and_repeatable():
     first = MicroMotion(seed=7)
     second = MicroMotion(seed=7)
@@ -268,3 +334,49 @@ def test_seeded_micro_motion_is_bounded_and_repeatable():
     assert np.allclose(first_angles, second_angles)
     assert np.max(np.abs(first_angles[:, 0])) <= 5.0
     assert np.max(np.abs(first_angles[:, 1])) <= 3.0
+
+
+def test_default_scene_preserves_static_clarity_metrics(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    sample_rate = 48_000
+    time = np.arange(sample_rate, dtype=np.float64) / sample_rate
+    center = 0.04 * np.sin(2 * np.pi * 300 * time) + 0.025 * np.sin(
+        2 * np.pi * 3_000 * time
+    )
+    side = 0.012 * np.sin(2 * np.pi * 1_500 * time)
+    transient_time = np.arange(240, dtype=np.float64) / sample_rate
+    transient = 0.08 * np.exp(-transient_time / 0.0015) * np.sin(
+        2 * np.pi * 2_500 * transient_time
+    )
+    for start in range(0, sample_rate - transient.size, 4_800):
+        center[start : start + transient.size] += transient
+    stereo = np.stack([center + side, center - side], axis=1).astype(np.float32)
+    profile = SpatialCoreProfile()
+    scene = build_scene(stereo, profile=profile, sample_rate=sample_rate)
+
+    output = SofaBinauralRenderer(
+        tmp_path / "test.sofa",
+        room_profile="off",
+        room_enabled=False,
+        profile=profile,
+        block_size=8_192,
+    ).render(scene).audio[: stereo.shape[0]]
+
+    def clarity_metrics(audio):
+        filtered = sosfiltfilt(
+            butter(4, [250.0, 5_000.0], btype="bandpass", fs=sample_rate, output="sos"),
+            audio,
+            axis=0,
+        )
+        def rms(value):
+            return np.sqrt(np.mean(np.asarray(value, dtype=float) ** 2)) + 1e-12
+        return np.asarray(
+            [
+                20.0 * np.log10(np.max(np.abs(filtered)) / rms(filtered)),
+                20.0 * np.log10(rms(np.diff(filtered, axis=0)) / rms(filtered)),
+            ]
+        )
+
+    delta = clarity_metrics(output) - clarity_metrics(stereo)
+    assert delta[0] >= -1.0
+    assert delta[1] >= -0.5

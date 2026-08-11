@@ -1,6 +1,7 @@
 import numpy as np
+import pytest
 
-from spatial_core import build_scene, encode_mono_foa, foa_direction_vector
+from spatial_core import SpatialCoreProfile, build_scene, encode_mono_foa, foa_direction_vector
 
 
 def test_foa_uses_ambix_acn_sn3d_channel_order():
@@ -25,7 +26,41 @@ def test_default_builder_creates_direct_objects_and_foa_bed():
     scene = build_scene(stereo, sample_rate=48_000)
 
     positions = {item.object_id: item.azimuth_deg for item in scene.objects}
-    assert positions == {"bass": 0.0, "front_L": 30.0, "front_R": -30.0}
+    assert positions == {
+        "bass": 0.0,
+        "center_anchor": 0.0,
+        "front_L_residual": 35.0,
+        "front_R_residual": -35.0,
+    }
     assert scene.bed is not None
     assert scene.bed.audio.shape == (frames, 4)
     assert scene.metadata["source"] == "dsp_bus_builder"
+    assert scene.metadata["zones"] == [
+        "bass",
+        "center_anchor",
+        "front_L_residual",
+        "front_R_residual",
+        "side_width",
+        "rear_ambience",
+        "high_air",
+    ]
+
+
+def test_builder_applies_compact_front_spatial_parameters():
+    stereo = np.zeros((2048, 2), dtype=np.float32)
+    profile = SpatialCoreProfile(
+        front_distance_m=2.2,
+        front_width_deg=48.0,
+        direct_ratio=0.7,
+    )
+
+    scene = build_scene(stereo, profile=profile, sample_rate=48_000)
+    objects = {item.object_id: item for item in scene.objects}
+
+    assert objects["bass"].distance_m == 2.2
+    assert objects["center_anchor"].distance_m == 2.2
+    assert objects["front_L_residual"].azimuth_deg == 48.0
+    assert objects["front_R_residual"].azimuth_deg == -48.0
+    assert all(item.direct_ratio == 0.7 for item in scene.objects)
+    assert all(item.gain_db == pytest.approx(20.0 * np.log10(2.2)) for item in scene.objects)
+    assert scene.metadata["mastered_distance_compensation"] is True

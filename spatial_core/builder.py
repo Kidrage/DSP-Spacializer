@@ -3,55 +3,85 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import asdict, fields
 
 import numpy as np
 
-from layer_extractor import extract_layers
-
 from .foa import encode_mono_foa
+from .profile import SpatialCoreProfile
 from .scene import FoaBed, SpatialObject, SpatialScene
+from .zones import extract_spatial_zones
 
 
-def _profile_value(profile: Mapping[str, object], key: str, default: float) -> float:
-    value = profile.get(key, default)
-    return float(value) if isinstance(value, (int, float)) else default
+def _resolve_profile(
+    profile: SpatialCoreProfile | Mapping[str, object] | None,
+) -> SpatialCoreProfile:
+    if isinstance(profile, SpatialCoreProfile):
+        return profile
+    if profile is None:
+        return SpatialCoreProfile()
+    defaults = SpatialCoreProfile()
+    values = {
+        item.name: profile.get(item.name, getattr(defaults, item.name))
+        for item in fields(SpatialCoreProfile)
+    }
+    return SpatialCoreProfile(**values)
 
 
 def build_scene(
     stereo: np.ndarray,
     analysis: Mapping[str, object] | None = None,
-    profile: Mapping[str, object] | None = None,
+    profile: SpatialCoreProfile | Mapping[str, object] | None = None,
     *,
     sample_rate: int = 48_000,
 ) -> SpatialScene:
-    """Build the default static Spatial Core V2 scene from stereo DSP buses.
+    """Build the default static Spatial Core scene from seven lossless M/S zones.
 
-    ``analysis`` is preserved in metadata for later source-aware builders; V2.0
-    intentionally performs no AI source separation.
+    ``analysis`` is preserved in metadata for later source-aware builders. The
+    center anchor is coherence-derived; no source-separation model is used.
     """
 
     audio = np.asarray(stereo, dtype=np.float32)
     if audio.ndim != 2 or audio.shape[1] != 2:
         raise ValueError("stereo input must be shaped [frames, 2]")
-    settings: Mapping[str, object] = profile or {}
-    buses = extract_layers(audio[:, 0], audio[:, 1], int(sample_rate))
+    settings = _resolve_profile(profile)
+    zones = extract_spatial_zones(audio, sample_rate=int(sample_rate), profile=settings)
+    distance_makeup_db = 20.0 * np.log10(settings.front_distance_m)
     objects = [
-        SpatialObject("bass", "bass", buses["bass"], 0.0, 0.0, 1.0, size=0.25),
-        SpatialObject("front_L", "front", buses["front_L"], 30.0, 0.0, 1.2, size=0.15),
-        SpatialObject("front_R", "front", buses["front_R"], -30.0, 0.0, 1.2, size=0.15),
+        SpatialObject(
+            "bass", "bass", zones.bass, 0.0, 0.0, settings.front_distance_m,
+            gain_db=distance_makeup_db, size=0.05, direct_ratio=settings.direct_ratio,
+        ),
+        SpatialObject(
+            "center_anchor", "center", zones.center_anchor, 0.0, 0.0,
+            settings.front_distance_m, gain_db=distance_makeup_db,
+            size=0.0, direct_ratio=settings.direct_ratio,
+        ),
+        SpatialObject(
+            "front_L_residual", "front", zones.front_L_residual,
+            settings.front_width_deg, 0.0, settings.front_distance_m,
+            gain_db=distance_makeup_db, size=0.05, direct_ratio=settings.direct_ratio,
+        ),
+        SpatialObject(
+            "front_R_residual", "front", zones.front_R_residual,
+            -settings.front_width_deg, 0.0, settings.front_distance_m,
+            gain_db=distance_makeup_db, size=0.05, direct_ratio=settings.direct_ratio,
+        ),
     ]
-    width_gain = _profile_value(settings, "bed_width_gain", 0.45)
-    rear_gain = _profile_value(settings, "bed_rear_gain", 0.35)
-    air_gain = _profile_value(settings, "bed_air_gain", 0.22)
     bed = np.zeros((audio.shape[0], 4), dtype=np.float32)
-    bed += encode_mono_foa(buses["side_width"], 75.0, 0.0, width_gain)
-    bed += encode_mono_foa(-buses["side_width"], -75.0, 0.0, width_gain)
-    bed += encode_mono_foa(buses["rear_ambience"], 135.0, 0.0, rear_gain)
-    bed += encode_mono_foa(-buses["rear_ambience"], -135.0, 0.0, rear_gain)
-    bed += encode_mono_foa(buses["high_air"], 110.0, 35.0, air_gain)
-    bed += encode_mono_foa(-buses["high_air"], -110.0, 35.0, air_gain)
+    bed += encode_mono_foa(zones.side_width, 75.0, 0.0, settings.bed_width_gain)
+    bed += encode_mono_foa(-zones.side_width, -75.0, 0.0, settings.bed_width_gain)
+    bed += encode_mono_foa(zones.rear_ambience, 135.0, 0.0, settings.bed_rear_gain)
+    bed += encode_mono_foa(-zones.rear_ambience, -135.0, 0.0, settings.bed_rear_gain)
+    bed += encode_mono_foa(zones.high_air, 110.0, 35.0, settings.bed_air_gain)
+    bed += encode_mono_foa(-zones.high_air, -110.0, 35.0, settings.bed_air_gain)
+    bed *= settings.front_distance_m
     metadata: dict[str, object] = {
         "source": "dsp_bus_builder",
+        "builder_version": "2.1",
+        "zones": list(zones.names),
+        "profile": asdict(settings),
+        "mastered_distance_compensation": True,
         "objects_static": True,
         "directivity": "omni",
     }

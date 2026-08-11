@@ -566,8 +566,11 @@ def main():
     parser.add_argument("--micro-motion", action="store_true", help="Enable deterministic simulated head micro-motion")
     parser.add_argument("--motion-seed", type=int, default=0, help="Micro-motion random seed")
     parser.add_argument(
-        "--room-profile", choices=["small-dry", "off"], default="small-dry",
+        "--room-profile", choices=["small-dry", "balanced-depth", "off"], default="small-dry",
         help="Spatial V2 early/late room profile",
+    )
+    parser.add_argument(
+        "--spatial-profile", default=None, help="Spatial Core compact profile JSON"
     )
     parser.add_argument(
         "--speaker-layout", default=None, help="Spatial Core four-speaker layout JSON"
@@ -656,6 +659,7 @@ def main():
                 micro_motion=args.micro_motion,
                 motion_seed=args.motion_seed,
                 room_profile=args.room_profile,
+                spatial_profile_path=args.spatial_profile,
                 speaker_layout_path=args.speaker_layout,
                 export_ctc=args.export_binaural_ctc_4ch,
                 ctc_options={
