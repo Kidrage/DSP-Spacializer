@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pytest
 import sofar
+from scipy.signal import firwin2
 
 from spatial_core import (
     FoaBed,
@@ -41,6 +42,32 @@ def _write_test_sofa(path, directions=None):
     sofa.Data_SamplingRate = 48_000
     sofar.write_sofa(path, sofa)
     return sofa
+
+
+def _write_colored_test_sofa(path):
+    directions = [
+        (0, 0),
+        (45, 0),
+        (90, 0),
+        (135, 0),
+        (180, 0),
+        (-135, 0),
+        (-90, 0),
+        (-45, 0),
+        (0, 45),
+        (0, -45),
+    ]
+    sofa = sofar.Sofa("SimpleFreeFieldHRIR")
+    sofa.SourcePosition = np.asarray([[az, el, 1] for az, el in directions], dtype=float)
+    common_response = firwin2(
+        513,
+        np.asarray([0, 50, 100, 250, 1_000, 3_000, 8_000, 24_000]) / 24_000,
+        [0.05, 0.05, 0.15, 0.4, 1.0, 5.0, 0.7, 0.5],
+    )
+    sofa.Data_IR = np.tile(common_response, (len(directions), 2, 1))
+    sofa.Data_Delay = np.zeros((len(directions), 2), dtype=float)
+    sofa.Data_SamplingRate = 48_000
+    sofar.write_sofa(path, sofa)
 
 
 def test_sofa_exact_match_preserves_measured_hrir(tmp_path):
@@ -111,6 +138,64 @@ def test_binaural_renderer_renders_objects_foa_and_head_motion(tmp_path):
     assert np.max(np.abs(result.audio)) > 0
     assert result.diagnostics["engine"] == "spatial-v2-sofa"
     assert result.diagnostics["head_motion"] is True
+
+
+def test_binaural_renderer_removes_common_hrtf_timbre_coloration(tmp_path):
+    _write_colored_test_sofa(tmp_path / "colored.sofa")
+    sample_rate = 48_000
+    frequencies = np.asarray([100, 250, 1_000, 3_000, 8_000], dtype=float)
+    time = np.arange(sample_rate, dtype=float) / sample_rate
+    signal = np.sum(np.sin(2.0 * np.pi * frequencies[:, None] * time), axis=0)
+    signal = np.asarray(0.02 * signal, dtype=np.float32)
+    scene = SpatialScene(sample_rate, [SpatialObject("reference", "front", signal)])
+
+    result = SofaBinauralRenderer(tmp_path / "colored.sofa", room_enabled=False).render(scene)
+
+    mono = np.mean(result.audio[6_000:42_000], axis=1)
+    analysis_time = np.arange(mono.size, dtype=float) / sample_rate
+    amplitudes = []
+    for frequency in frequencies:
+        phase = 2.0 * np.pi * frequency * analysis_time
+        amplitudes.append(
+            2.0
+            / mono.size
+            * np.hypot(np.dot(mono, np.sin(phase)), np.dot(mono, np.cos(phase)))
+        )
+    relative_db = 20.0 * np.log10(np.maximum(amplitudes, 1e-12) / amplitudes[2])
+
+    assert np.max(np.abs(relative_db)) < 4.0
+    assert result.diagnostics["hrtf_timbre_compensation"] == "front-common-field"
+
+
+def test_binaural_object_size_does_not_increase_coherent_level(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    signal = np.zeros(4_096, dtype=np.float32)
+    signal[512] = 0.02
+    renderer = SofaBinauralRenderer(tmp_path / "test.sofa", room_enabled=False)
+
+    point = renderer.render(
+        SpatialScene(48_000, [SpatialObject("point", "front", signal, size=0.0)])
+    )
+    broad = renderer.render(
+        SpatialScene(48_000, [SpatialObject("broad", "front", signal, size=0.25)])
+    )
+
+    level_ratio = np.linalg.norm(broad.audio) / np.linalg.norm(point.audio)
+    assert level_ratio <= 1.05
+
+
+def test_binaural_limiter_does_not_turn_down_the_whole_track_for_one_peak(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    signal = np.full(48_000, 0.1, dtype=np.float32)
+    signal[24_000] = 2.0
+    scene = SpatialScene(48_000, [SpatialObject("music", "front", signal)])
+
+    result = SofaBinauralRenderer(tmp_path / "test.sofa", room_enabled=False).render(scene)
+
+    unaffected_level = float(np.median(np.abs(result.audio[5_000:15_000])))
+    assert unaffected_level > 0.09
+    assert np.max(np.abs(result.audio)) <= 0.98 + 1e-6
+    assert result.diagnostics["limiter"]["mode"] == "linked_frame_envelope"
 
 
 def test_distance_model_reduces_far_direct_sound(tmp_path):

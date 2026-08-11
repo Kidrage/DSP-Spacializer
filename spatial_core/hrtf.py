@@ -8,7 +8,7 @@ from pathlib import Path
 import warnings
 
 import numpy as np
-from scipy.signal import resample_poly
+from scipy.signal import firwin2, resample_poly
 
 from .foa import foa_direction_vector
 
@@ -58,6 +58,46 @@ def _expand_delays(sofa: object, measurements: int, receivers: int, sample_rate:
     return delays * sample_rate if "second" in units else delays
 
 
+def _front_common_field_compensation(
+    front_ir: np.ndarray,
+    sample_rate: int,
+    *,
+    num_taps: int = 2049,
+) -> tuple[np.ndarray, float, float]:
+    """Return a bounded linear-phase inverse of the frontal common transfer.
+
+    The same filter is applied to both ears after rendering, so directional
+    interaural differences remain intact. Broad log-frequency smoothing avoids
+    trying to invert narrow measurement notches.
+    """
+
+    nfft = max(16_384, 1 << int(np.ceil(np.log2(front_ir.shape[-1] * 8))))
+    spectrum = np.fft.rfft(np.asarray(front_ir, dtype=np.float64), n=nfft, axis=-1)
+    common_magnitude = np.sqrt(np.maximum(np.abs(spectrum[0]) * np.abs(spectrum[1]), 1e-12))
+    frequencies = np.fft.rfftfreq(nfft, 1.0 / sample_rate)
+    nyquist = 0.5 * sample_rate
+    control_frequencies = np.geomspace(20.0, nyquist, 384)
+    common_db = np.interp(
+        control_frequencies,
+        frequencies,
+        20.0 * np.log10(common_magnitude),
+    )
+    window = np.hanning(17)
+    window /= np.sum(window)
+    padding = window.size // 2
+    smoothed_db = np.convolve(np.pad(common_db, padding, mode="edge"), window, mode="valid")
+    reference_db = float(np.interp(1_000.0, control_frequencies, smoothed_db))
+    correction_db = np.clip(reference_db - smoothed_db, -18.0, 20.0)
+    design_frequencies = np.concatenate(([0.0], control_frequencies)) / nyquist
+    design_gain = 10.0 ** (np.concatenate(([correction_db[0]], correction_db)) / 20.0)
+    compensation = firwin2(num_taps, design_frequencies, design_gain)
+    return (
+        np.asarray(compensation, dtype=np.float32),
+        float(np.max(correction_db)),
+        float(np.min(correction_db)),
+    )
+
+
 class SofaHrirDatabase:
     """A validated SimpleFreeFieldHRIR database at one renderer sample rate."""
 
@@ -105,6 +145,11 @@ class SofaHrirDatabase:
         if not np.isfinite(front_energy) or front_energy <= 1e-9:
             raise ValueError("SOFA front-reference HRIR has no usable energy")
         self.front_reference_gain = 1.0 / front_energy
+        (
+            self.timbre_compensation_ir,
+            self.timbre_compensation_max_boost_db,
+            self.timbre_compensation_max_cut_db,
+        ) = _front_common_field_compensation(self.ir[front_index], self.sample_rate)
 
     def angular_errors(self, azimuth_deg: float, elevation_deg: float) -> np.ndarray:
         target = _unit_vectors(np.asarray([azimuth_deg]), np.asarray([elevation_deg]))[0]

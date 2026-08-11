@@ -24,8 +24,15 @@ DSP bus objects + AmbiX FOA bed
 - Distance is bounded to 0.1–10 m. Both backends apply gain and air absorption;
   the binaural backend additionally applies DRR, early reflections, and the
   late field.
-- Object size spreads an L2-normalized ray set. Diffusion uses an equal-power
-  positional/diffuse split.
+- Object size spreads amplitude-normalized coherent rays, so changing size does
+  not raise the source level. Diffusion uses an equal-power positional/diffuse
+  split.
+- The binaural output removes the broad frontal common-field coloration of the
+  measured HRIR with one bounded, smoothed filter shared by both ears. This
+  preserves directional interaural differences while preventing the listener
+  dataset from imposing its raw bass roll-off or pinna peak on the mix.
+- A linked attack/release limiter handles local overloads without scaling the
+  entire track from its single largest sample.
 - Speaker elevation is projected to the horizontal 4.0 layout and reported.
 
 ## CLI
@@ -112,6 +119,9 @@ HRIRs; other directions use inverse-angular three-neighbor interpolation after
 onset and delay alignment. A nearest-direction error above 15° emits a
 diagnostic warning; above 45° fails. The FOA bed is decoded to each ear by a
 regularized first-order spherical-harmonic projection over the measured set.
+After object and bed summation, the same frontal common-field compensation is
+applied to both ears; its boost and cut limits are included in render
+diagnostics.
 
 Trajectory files use `spatial_core_listener_trajectory` 1.0 with strictly increasing
 time keyframes. Yaw/pitch/roll are interpolated with SLERP and endpoints hold.
