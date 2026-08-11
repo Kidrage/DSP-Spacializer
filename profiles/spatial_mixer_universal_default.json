@@ -1,0 +1,30 @@
+{
+  "format": "spatial_mixer_profile",
+  "version": "1.0",
+  "renderer_revision": "spatial-core-v2.1",
+  "zones": {
+    "bass": {"kind": "object", "gain_db": 0.0, "azimuth_deg": 0.0, "elevation_deg": 0.0, "distance_m": 1.6, "size": 0.05, "diffusion": 0.0, "direct_ratio": 0.78, "early_reflection_trim_db": 0.0, "late_reverb_trim_db": 0.0},
+    "center_anchor": {"kind": "object", "gain_db": 0.0, "azimuth_deg": 0.0, "elevation_deg": 0.0, "distance_m": 1.6, "size": 0.0, "diffusion": 0.0, "direct_ratio": 0.78, "early_reflection_trim_db": 0.0, "late_reverb_trim_db": 0.0},
+    "front_L_residual": {"kind": "object", "gain_db": 0.0, "azimuth_deg": 35.0, "elevation_deg": 0.0, "distance_m": 1.6, "size": 0.05, "diffusion": 0.0, "direct_ratio": 0.78, "early_reflection_trim_db": 0.0, "late_reverb_trim_db": 0.0},
+    "front_R_residual": {"kind": "object", "gain_db": 0.0, "azimuth_deg": -35.0, "elevation_deg": 0.0, "distance_m": 1.6, "size": 0.05, "diffusion": 0.0, "direct_ratio": 0.78, "early_reflection_trim_db": 0.0, "late_reverb_trim_db": 0.0},
+    "side_width": {"kind": "foa_field", "gain_db": -12.041199826559248, "azimuth_deg": 75.0, "elevation_deg": 0.0},
+    "rear_ambience": {"kind": "foa_field", "gain_db": -14.89454989793388, "azimuth_deg": 135.0, "elevation_deg": 0.0},
+    "high_air": {"kind": "foa_field", "gain_db": -18.416375079047505, "azimuth_deg": 110.0, "elevation_deg": 35.0}
+  },
+  "room": {"early_reflection_level_db": -21.0, "late_reverb_level_db": -27.0, "late_rt60_s": 0.35},
+  "extraction": {
+    "bass_low_hz": 80.0,
+    "bass_high_hz": 160.0,
+    "center_anchor": 0.8,
+    "center_focus_low_hz": 900.0,
+    "center_focus_high_hz": 2500.0,
+    "center_focus_floor": 0.25,
+    "front_side_weight_low": 0.9,
+    "front_side_weight_high": 0.75,
+    "rear_strength": 0.55,
+    "rear_low_hz": 1500.0,
+    "rear_high_hz": 3000.0,
+    "air_low_hz": 5500.0,
+    "air_high_hz": 9000.0
+  }
+}

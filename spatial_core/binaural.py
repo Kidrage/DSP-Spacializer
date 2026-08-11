@@ -305,6 +305,7 @@ class SofaBinauralRenderer:
                         gain = (
                             balanced_room_send
                             * 10.0 ** (self.profile.early_reflection_level_db / 20.0)
+                            * 10.0 ** (item.early_reflection_trim_db / 20.0)
                             * reflection.relative_gain
                             / max(float(reflection_norm), 1e-9)
                         )
@@ -325,7 +326,11 @@ class SofaBinauralRenderer:
                         )
                         max_coverage_error = max(max_coverage_error, error)
                         delay = int(round(float(delay_ms) * scene.sample_rate / 1000.0))
-                        gain = room_gain * 10.0 ** (float(level_db) / 20.0)
+                        gain = (
+                            room_gain
+                            * 10.0 ** (float(level_db) / 20.0)
+                            * 10.0 ** (item.early_reflection_trim_db / 20.0)
+                        )
                         self._add(output, reflected, start + delay, gain)
             if diffuse_gain > 0.0:
                 send = signal * diffuse_gain
@@ -335,9 +340,17 @@ class SofaBinauralRenderer:
                 delayed = np.pad(send[:-17] if send.size > 17 else np.zeros(0), (17, 0))
                 diffuse_foa += encode_mono_foa(delayed, item.azimuth_deg - 115.0, -12.0, 0.5)
             if self.room_profile == "balanced-depth":
-                late_send += balanced_room_send * signal
+                late_send += (
+                    balanced_room_send
+                    * 10.0 ** (item.late_reverb_trim_db / 20.0)
+                    * signal
+                )
             elif room_gain > 0.0:
-                late_send += room_gain * signal
+                late_send += (
+                    room_gain
+                    * 10.0 ** (item.late_reverb_trim_db / 20.0)
+                    * signal
+                )
         if np.any(late_send):
             if self.room_profile == "balanced-depth":
                 late_start_s = (balanced_last_early_ms + 10.0) / 1_000.0
