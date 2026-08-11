@@ -8,6 +8,8 @@ from math import gcd, isfinite
 from pathlib import Path
 from typing import Mapping, Protocol
 import json
+import re
+import secrets
 
 import numpy as np
 from scipy.signal import resample_poly
@@ -44,6 +46,7 @@ SCORE_FIELDS = {
     "distance",
     "timbre",
 }
+PREVIEW_ID_PATTERN = re.compile(r"[0-9a-f]{24}")
 
 
 class PreviewRenderer(Protocol):
@@ -203,6 +206,41 @@ def _match_reference_level(reference: np.ndarray, candidate: np.ndarray) -> np.n
     return np.asarray(candidate * gain, dtype=np.float32)
 
 
+def _waveform_summary(audio: np.ndarray, points: int = 240) -> list[float]:
+    mono = np.mean(np.asarray(audio, dtype=np.float64), axis=1)
+    if mono.size == 0:
+        return []
+    edges = np.linspace(0, mono.size, points + 1, dtype=int)
+    return [
+        float(np.max(np.abs(mono[edges[index] : max(edges[index + 1], edges[index] + 1)])))
+        for index in range(points)
+    ]
+
+
+def _spectrum_summary(audio: np.ndarray, sample_rate: int, bands: int = 36) -> list[dict[str, float]]:
+    value = np.asarray(audio, dtype=np.float64)
+    mono = value if value.ndim == 1 else np.mean(value, axis=1)
+    if mono.size == 0:
+        return []
+    window_size = min(mono.size, 131_072)
+    segment = mono[:window_size] * np.hanning(window_size)
+    spectrum = np.abs(np.fft.rfft(segment))
+    frequencies = np.fft.rfftfreq(window_size, 1.0 / sample_rate)
+    edges = np.geomspace(30.0, min(20_000.0, sample_rate * 0.5), bands + 1)
+    peak = max(float(np.max(spectrum)), 1e-12)
+    result: list[dict[str, float]] = []
+    for low, high in zip(edges[:-1], edges[1:]):
+        mask = (frequencies >= low) & (frequencies < high)
+        magnitude = float(np.sqrt(np.mean(spectrum[mask] ** 2))) if np.any(mask) else 0.0
+        result.append(
+            {
+                "frequency_hz": float(np.sqrt(low * high)),
+                "db": float(max(-90.0, 20.0 * np.log10(max(magnitude / peak, 1e-12)))),
+            }
+        )
+    return result
+
+
 class MixerService:
     """Deep module for campaign state, previews, comparisons, and promotion."""
 
@@ -233,6 +271,7 @@ class MixerService:
             self.draft = self.accepted
             self.monitor = MonitorProfile()
             self.audition = AuditionState()
+            self.calibration_tracks = self._default_calibration_tracks()
             self.comparisons: list[dict[str, object]] = []
             self._write_revision(self.accepted)
             self._save_campaign()
@@ -272,6 +311,46 @@ class MixerService:
             )
         )
         return tracks
+
+    def _default_calibration_tracks(self) -> list[dict[str, object]]:
+        return [
+            {
+                "track_id": str(track["track_id"]),
+                "name": str(track["name"]),
+                "category": track.get("suggested_category"),
+                "start_s": 0.0,
+                "duration_s": 20.0,
+            }
+            for track in self._tracks[:9]
+        ]
+
+    def _validate_calibration_tracks(self, payload: object) -> list[dict[str, object]]:
+        if not isinstance(payload, list) or not all(isinstance(item, Mapping) for item in payload):
+            raise ValueError("calibration_tracks must be a list")
+        known = {str(item["track_id"]): item for item in self._tracks}
+        result: list[dict[str, object]] = []
+        seen: set[str] = set()
+        for item in payload:
+            track_id = str(item.get("track_id", ""))
+            if track_id not in known or track_id in seen:
+                raise ValueError("calibration_tracks contain an unknown or duplicate track")
+            seen.add(track_id)
+            category = item.get("category")
+            category_name = None if category is None else str(category).strip() or None
+            result.append(
+                {
+                    "track_id": track_id,
+                    "name": str(known[track_id]["name"]),
+                    "category": category_name,
+                    "start_s": _finite_number("calibration start_s", item.get("start_s", 0.0), 0.0, 86_400.0),
+                    "duration_s": _finite_number(
+                        "calibration duration_s", item.get("duration_s", 20.0), 1.0, 30.0
+                    ),
+                }
+            )
+        if len(result) > 9:
+            raise ValueError("calibration_tracks may contain at most nine tracks")
+        return result
 
     def _write_revision(self, profile: MixerProfile) -> None:
         save_mixer_profile(
@@ -316,6 +395,9 @@ class MixerService:
         comparisons = payload.get("comparisons", [])
         if not isinstance(comparisons, list) or not all(isinstance(item, dict) for item in comparisons):
             raise ValueError("calibration campaign comparisons must be a list")
+        self.calibration_tracks = self._validate_calibration_tracks(
+            payload.get("calibration_tracks", self._default_calibration_tracks())
+        )
         self.comparisons = list(comparisons)
 
     def _save_campaign(self) -> None:
@@ -330,6 +412,7 @@ class MixerService:
             "monitor": asdict(self.monitor),
             "audition": asdict(self.audition),
             "tracks": self._tracks,
+            "calibration_tracks": self.calibration_tracks,
             "comparisons": self.comparisons,
         }
         (self.workspace_dir / "campaign.json").write_text(
@@ -343,16 +426,19 @@ class MixerService:
             for item in self.comparisons
         ]
         current = [item for item in comparisons if not item["stale"]]
+        pinned_ids = {str(item["track_id"]) for item in self.calibration_tracks}
+        current_pinned = [item for item in current if str(item.get("track_id")) in pinned_ids]
         return {
             "accepted": _profile_state(self.accepted),
             "draft": _profile_state(self.draft),
             "monitor": asdict(self.monitor),
             "audition": asdict(self.audition),
             "tracks": list(self._tracks),
+            "calibration_tracks": list(self.calibration_tracks),
             "comparisons": comparisons,
             "validation": {
-                "track_count": len({str(item["track_id"]) for item in current}),
-                "category_count": len({str(item["category"]) for item in current}),
+                "track_count": len({str(item["track_id"]) for item in current_pinned}),
+                "category_count": len({str(item["category"]) for item in current_pinned}),
                 "required_tracks": 9,
                 "required_categories": 6,
             },
@@ -405,6 +491,33 @@ class MixerService:
             raise ValueError("track path is outside the allowed library")
         return path
 
+    def _preview_manifest(self, preview_id: str) -> dict[str, object]:
+        if not PREVIEW_ID_PATTERN.fullmatch(str(preview_id)):
+            raise ValueError("preview_id is invalid")
+        path = (self.workspace_dir / "previews" / str(preview_id) / "preview.json").resolve()
+        if not path.is_relative_to(self.workspace_dir) or not path.is_file():
+            raise ValueError("preview does not exist")
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError("preview manifest is unreadable") from exc
+        if payload.get("preview_id") != preview_id:
+            raise ValueError("preview manifest does not match preview_id")
+        return payload
+
+    @staticmethod
+    def _public_preview(payload: Mapping[str, object], *, cached: bool) -> dict[str, object]:
+        public = {
+            key: value for key, value in payload.items() if key not in {"blind_order", "diagnostics"}
+        }
+        preview_id = str(payload["preview_id"])
+        public["audio"] = {
+            variant: f"/api/audio/{preview_id}/{variant}"
+            for variant in ("reference", "1", "2")
+        }
+        public["cached"] = cached
+        return public
+
     def _read_excerpt(
         self,
         path: Path,
@@ -456,8 +569,17 @@ class MixerService:
         manifest_path = preview_dir / "preview.json"
         if manifest_path.is_file():
             payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-            payload["cached"] = True
-            return payload
+            required = {
+                "blind_order",
+                "accepted_hash",
+                "start_s",
+                "duration_s",
+                "waveform",
+                "monitor",
+                "audition",
+            }
+            if required.issubset(payload):
+                return self._public_preview(payload, cached=True)
         reference, sample_rate = self._read_excerpt(path, float(start_s), float(duration_s))
         try:
             a_audio, a_diagnostics = self.renderer.render(
@@ -496,23 +618,38 @@ class MixerService:
             audio_path = preview_dir / f"{name}.wav"
             sf.write(audio_path, audio, sample_rate, subtype="FLOAT")
             audio_paths[name] = audio_path.relative_to(self.workspace_dir).as_posix()
+        blind_order = ["a", "b"] if secrets.randbelow(2) == 0 else ["b", "a"]
         payload = {
             "preview_id": preview_id,
             "cached": False,
             "track_id": track_id,
+            "start_s": float(start_s),
+            "duration_s": float(duration_s),
             "sample_rate": sample_rate,
             "frames": frames,
-            "audio": audio_paths,
+            "audio": {
+                "reference": audio_paths["reference"],
+                "1": audio_paths[blind_order[0]],
+                "2": audio_paths[blind_order[1]],
+            },
+            "blind_order": blind_order,
             "profile_hash": self.draft.profile_hash,
+            "accepted_hash": self.accepted.profile_hash,
+            "monitor": asdict(self.monitor),
+            "audition": asdict(self.audition),
             "objective_metrics": objective_metrics,
             "objective_gate": objective_gate,
-            "diagnostics": {"a": a_diagnostics, "b": b_diagnostics},
+            "diagnostics": {
+                "1": a_diagnostics if blind_order[0] == "a" else b_diagnostics,
+                "2": a_diagnostics if blind_order[1] == "a" else b_diagnostics,
+            },
+            "waveform": _waveform_summary(rendered["reference"]),
         }
         manifest_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        return payload
+        return self._public_preview(payload, cached=False)
 
     def analyze_extraction(
         self,
@@ -536,13 +673,13 @@ class MixerService:
         error_db = 20.0 * np.log10(max(error_rms / reference_rms, 1e-12))
         if not np.isfinite(error_db) or error_db >= -80.0:
             raise ValueError("extraction reconstruction error must remain below -80 dB")
-        zone_metrics = {
-            name: {
+        zone_metrics = {}
+        for name, value in zones.as_dict().items():
+            zone_metrics[name] = {
                 "rms": float(np.sqrt(np.mean(value.astype(np.float64) ** 2))),
                 "peak": float(np.max(np.abs(value))),
+                "spectrum": _spectrum_summary(value, sample_rate),
             }
-            for name, value in zones.as_dict().items()
-        }
         return {
             "track_id": track_id,
             "profile_hash": self.draft.profile_hash,
@@ -558,17 +695,43 @@ class MixerService:
         category: str,
         choice: str,
         scores: Mapping[str, object],
-        objective_gate: Mapping[str, object],
+        preview_id: str,
         notes: str = "",
     ) -> dict[str, object]:
-        """Record one listening decision against the current immutable draft hash."""
+        """Record one blind decision bound to a server-authored preview manifest."""
 
         self._track_path(track_id)
+        calibration_track = next(
+            (item for item in self.calibration_tracks if item["track_id"] == track_id), None
+        )
+        if calibration_track is None:
+            raise ValueError("comparison track is not in the pinned calibration set")
+        manifest = self._preview_manifest(preview_id)
+        if manifest.get("track_id") != track_id:
+            raise ValueError("preview belongs to a different track")
+        if manifest.get("profile_hash") != self.draft.profile_hash:
+            raise ValueError("preview does not represent the current draft")
+        if manifest.get("accepted_hash") != self.accepted.profile_hash:
+            raise ValueError("preview does not represent the current accepted baseline")
+        if manifest.get("monitor") != asdict(self.monitor):
+            raise ValueError("preview does not represent the current monitor settings")
+        current_audition = json.loads(json.dumps(asdict(self.audition)))
+        if manifest.get("audition") != current_audition:
+            raise ValueError("preview does not represent the current audition settings")
+        if self.audition.muted or self.audition.soloed or not self.audition.level_match:
+            raise ValueError("calibration comparisons require the full level-matched mix")
         category_name = str(category).strip()
         if not category_name:
             raise ValueError("comparison category is required")
-        if choice not in {"a", "b", "equal"}:
-            raise ValueError("comparison choice must be 'a', 'b', or 'equal'")
+        pinned_category = calibration_track.get("category")
+        if pinned_category is not None and category_name != pinned_category:
+            raise ValueError("comparison category must match the pinned calibration category")
+        if choice not in {"1", "2", "equal"}:
+            raise ValueError("comparison choice must be '1', '2', or 'equal'")
+        blind_order = manifest.get("blind_order")
+        if not isinstance(blind_order, list) or sorted(blind_order) != ["a", "b"]:
+            raise ValueError("preview manifest has invalid blind ordering")
+        resolved_choice = "equal" if choice == "equal" else blind_order[int(choice) - 1]
         required_scores = {"clarity", "bass", "depth", "externalization"}
         unknown_scores = sorted(set(scores) - SCORE_FIELDS)
         if unknown_scores:
@@ -580,20 +743,32 @@ class MixerService:
             name: _finite_number(f"score {name}", value, 0.0, 10.0)
             for name, value in scores.items()
         }
-        if objective_gate.get("pass") not in {True, False}:
-            raise ValueError("objective_gate.pass must be boolean")
+        objective_gate = manifest.get("objective_gate")
+        if not isinstance(objective_gate, Mapping) or objective_gate.get("pass") not in {
+            True,
+            False,
+        }:
+            raise ValueError("preview objective gate is invalid")
         failures = objective_gate.get("failures", [])
         if not isinstance(failures, list) or not all(isinstance(item, str) for item in failures):
             raise ValueError("objective_gate.failures must be a list of strings")
         record = {
             "track_id": track_id,
             "category": category_name,
-            "choice": choice,
+            "blind_choice": choice,
+            "choice": resolved_choice,
             "scores": validated_scores,
             "objective_gate": {"pass": objective_gate["pass"], "failures": list(failures)},
             "notes": str(notes),
             "profile_hash": self.draft.profile_hash,
             "accepted_hash": self.accepted.profile_hash,
+            "monitor": dict(manifest["monitor"]),
+            "audition": dict(manifest["audition"]),
+            "preview_id": preview_id,
+            "excerpt": {
+                "start_s": float(manifest["start_s"]),
+                "duration_s": float(manifest["duration_s"]),
+            },
         }
         self.comparisons = [
             item
@@ -604,18 +779,70 @@ class MixerService:
             )
         ]
         self.comparisons.append(record)
+        calibration_track["category"] = category_name
+        calibration_track["start_s"] = float(manifest["start_s"])
+        calibration_track["duration_s"] = float(manifest["duration_s"])
         self._save_campaign()
         return self._state()
+
+    def _validated_current_comparisons(self) -> list[dict[str, object]]:
+        current = {
+            str(item["track_id"]): item
+            for item in self.comparisons
+            if item.get("profile_hash") == self.draft.profile_hash
+        }
+        pinned_ids = [str(item["track_id"]) for item in self.calibration_tracks]
+        if len(pinned_ids) != 9 or set(current) != set(pinned_ids):
+            raise ValueError("promotion requires the pinned nine-track calibration set")
+        validated: list[dict[str, object]] = []
+        for track_id in pinned_ids:
+            record = current[track_id]
+            manifest = self._preview_manifest(str(record.get("preview_id", "")))
+            blind_order = manifest.get("blind_order")
+            manifest_gate = manifest.get("objective_gate")
+            normalized_gate = (
+                {
+                    "pass": manifest_gate.get("pass"),
+                    "failures": list(manifest_gate.get("failures", [])),
+                }
+                if isinstance(manifest_gate, Mapping)
+                else None
+            )
+            blind_choice = record.get("blind_choice")
+            resolved_choice = (
+                "equal"
+                if blind_choice == "equal"
+                else blind_order[int(str(blind_choice)) - 1]
+                if isinstance(blind_order, list) and blind_choice in {"1", "2"}
+                else None
+            )
+            evidence_matches = (
+                manifest.get("track_id") == track_id
+                and manifest.get("profile_hash") == self.draft.profile_hash
+                and manifest.get("accepted_hash") == self.accepted.profile_hash
+                and record.get("accepted_hash") == self.accepted.profile_hash
+                and record.get("monitor") == manifest.get("monitor")
+                and record.get("audition") == manifest.get("audition")
+                and record.get("objective_gate") == normalized_gate
+                and record.get("choice") == resolved_choice
+                and record.get("excerpt")
+                == {
+                    "start_s": float(manifest.get("start_s", -1.0)),
+                    "duration_s": float(manifest.get("duration_s", -1.0)),
+                }
+            )
+            if not evidence_matches:
+                raise ValueError(f"comparison evidence does not match preview: {track_id}")
+            validated.append(record)
+        return validated
 
     def promote_profile(self, *, override_reason: str | None = None) -> dict[str, object]:
         """Promote one globally validated draft and retain all advisory warnings."""
 
-        current = [
-            item for item in self.comparisons if item.get("profile_hash") == self.draft.profile_hash
-        ]
-        track_count = len({str(item["track_id"]) for item in current})
+        current = self._validated_current_comparisons()
+        track_count = len(current)
         category_count = len({str(item["category"]) for item in current})
-        if track_count < 9 or category_count < 6:
+        if category_count < 6:
             raise ValueError("promotion requires nine tracks spanning at least six categories")
         objective_failures = [
             {
@@ -642,6 +869,7 @@ class MixerService:
             "objective_override": objective_override,
             "override_reason": reason or None,
             "objective_failures": objective_failures,
+            "calibration_tracks": self.calibration_tracks,
             "comparisons": current,
             "monitor": asdict(self.monitor),
             "profile_warnings": _profile_warnings(self.draft),

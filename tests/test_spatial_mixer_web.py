@@ -39,6 +39,7 @@ def test_local_web_interface_exposes_state_preview_and_allowlisted_audio(tmp_pat
     page = client.get("/")
     assert page.status_code == 200
     assert "七区" in page.text
+    assert "版本 1 更好" in page.text
 
     state = client.get("/api/state").json()
     response = client.patch("/api/draft", json={"zones": {"bass": {"gain_db": 0.5}}})
@@ -50,7 +51,32 @@ def test_local_web_interface_exposes_state_preview_and_allowlisted_audio(tmp_pat
     audio_response = client.get(f"/api/audio/{preview['preview_id']}/reference")
     assert audio_response.status_code == 200
     assert audio_response.headers["content-type"].startswith("audio/")
+    assert client.get(f"/api/audio/{preview['preview_id']}/1").status_code == 200
+    assert client.get(f"/api/audio/{preview['preview_id']}/2").status_code == 200
     assert client.get("/api/audio/not-a-cache/reference").status_code == 404
+
+    comparison = client.post(
+        "/api/comparisons",
+        json={
+            "track_id": state["tracks"][0]["track_id"],
+            "category": "test",
+            "choice": "2",
+            "scores": {"clarity": 8, "bass": 8, "depth": 8, "externalization": 8},
+            "preview_id": preview["preview_id"],
+            "objective_gate": {"pass": not preview["objective_gate"]["pass"], "failures": []},
+        },
+    )
+    assert comparison.status_code == 200
+    stored_gate = comparison.json()["comparisons"][0]["objective_gate"]
+    assert stored_gate["pass"] == preview["objective_gate"]["pass"]
+
+
+def test_frontend_uses_one_audio_clock_for_sample_aligned_switching():
+    script = (ROOT / "web_ui" / "static" / "app.js").read_text(encoding="utf-8")
+
+    assert "createBufferSource" in script
+    assert "source.start(when, playbackOffset)" in script
+    assert "createMediaElementSource" not in script
 
 
 def test_local_mixer_launcher_documents_required_roots():

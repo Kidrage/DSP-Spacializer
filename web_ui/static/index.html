@@ -32,13 +32,14 @@
         <label>曲目<select id="track-select"></select></label>
         <label>起点 <span id="start-value">0s</span><input id="start" type="range" min="0" max="180" value="0"></label>
         <label>摘录<select id="duration"><option value="10">10 秒</option><option value="20" selected>20 秒</option><option value="30">30 秒</option></select></label>
-        <button id="render-preview" class="primary">生成 A/B 试听</button>
+        <button id="render-preview" class="primary">生成盲听试听</button>
         <div class="ab-switch" role="group" aria-label="试听版本">
           <button data-variant="reference">REF 原曲</button>
-          <button data-variant="a">A 基线</button>
-          <button data-variant="b" class="active">B 草稿</button>
+          <button data-variant="1">版本 1</button>
+          <button data-variant="2" class="active">版本 2</button>
         </div>
         <button id="play-pause" disabled>播放</button>
+        <canvas id="waveform" class="waveform" width="1200" height="72" aria-label="当前试听波形"></canvas>
       </div>
 
       <div class="mixer-layout">
@@ -81,7 +82,7 @@
           <div class="panel-heading"><div><p class="eyebrow">BLIND COMPARISON</p><h2>记录本次听感</h2></div></div>
           <label>类别<input id="evaluation-category" list="category-options" placeholder="例如 cinematic"></label>
           <datalist id="category-options"><option value="pop"><option value="ballad"><option value="cinematic"><option value="world"><option value="jazz"><option value="electronic"></datalist>
-          <div class="choice-row"><button data-choice="a">A 更好</button><button data-choice="equal">相当</button><button data-choice="b" class="active">B 更好</button></div>
+          <div class="choice-row"><button data-choice="1">版本 1 更好</button><button data-choice="equal">相当</button><button data-choice="2" class="active">版本 2 更好</button></div>
           <div id="score-controls"></div>
           <label>听感笔记<textarea id="evaluation-notes" rows="3" placeholder="重点记录人声清晰度、低频重量和距离感"></textarea></label>
           <button id="save-comparison" class="primary">保存当前曲目评价</button>
@@ -95,7 +96,7 @@
 
     <section id="page-monitor" class="page">
       <section class="panel narrow-panel">
-        <div class="panel-heading"><div><p class="eyebrow">MONITOR ONLY</p><h2>你的耳机与听觉补偿</h2></div><span>REF / A / B 同时生效</span></div>
+        <div class="panel-heading"><div><p class="eyebrow">MONITOR ONLY</p><h2>你的耳机与听觉补偿</h2></div><span>REF / 版本 1 / 版本 2 同时生效</span></div>
         <p class="lead">这些调整只用于让你判断得更稳定。它们不会进入通用 DSP 配置，也不会改变客观检测。</p>
         <div id="monitor-controls" class="monitor-controls"></div>
       </section>
@@ -107,11 +108,12 @@
           <div class="panel-heading"><div><p class="eyebrow">EXTRACTION LAB</p><h2>七区内容边界</h2></div><span>高级 · 修改会使旧评价失效</span></div>
           <p class="lead">这里决定“什么声音进入哪个区域”，不是决定区域放在哪里。不了解算法时建议先使用混音台页面。</p>
           <div id="extraction-controls" class="control-grid extraction-controls"></div>
+          <div id="lab-solo" class="lab-solo" aria-label="分区独听"></div>
           <button id="analyze-extraction" class="primary">分析当前摘录</button>
         </section>
         <aside class="panel">
           <div class="panel-heading"><div><p class="eyebrow">MASK HEALTH</p><h2>分区与重构</h2></div><span>STFT 2048 / Hop 512</span></div>
-          <div id="lab-result" class="lab-result empty">运行分析后显示各区能量与重构误差。</div>
+          <div id="lab-result" class="lab-result empty">运行分析后显示各区能量、频谱与重构误差。</div>
         </aside>
       </div>
     </section>

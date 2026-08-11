@@ -1,8 +1,8 @@
 # Source Index
 
 Repository: /Users/saintpeter/Desktop/Coding/spatializer_outputs/dsp-spatializer
-Tracked filtered files: 105
-High-value indexed files: 95
+Tracked filtered files: 121
+High-value indexed files: 109
 
 Read this file before broad repository exploration. Prefer focused `rg`
 or `git grep` against the listed areas before opening source files.
@@ -33,6 +33,7 @@ or `git grep` against the listed areas before opening source files.
 - presets.py
 - renderer_4ch.py
 - run_feedback_spatializer.py
+- run_spatial_mixer.py
 - run_spatializer.py
 - scripts/check_text_integrity.py
 - scripts/make_evidence_table.py
@@ -53,6 +54,10 @@ or `git grep` against the listed areas before opening source files.
 - spatial_core/speaker.py
 - spatial_core/workflow.py
 - spatial_core/zones.py
+- spatial_mixer/__init__.py
+- spatial_mixer/campaign.py
+- spatial_mixer/profile.py
+- spatial_mixer/rendering.py
 - spatial_quality_report.py
 - spatial_safety.py
 - streaming_analyzer.py
@@ -61,6 +66,9 @@ or `git grep` against the listed areas before opening source files.
 - threshold_calibrator.py
 - tuning_profile.py
 - update_spatializer_notebook_rir.py
+- web_ui/__init__.py
+- web_ui/server.py
+- web_ui/static/app.js
 
 ## tests
 
@@ -77,6 +85,10 @@ or `git grep` against the listed areas before opening source files.
 - tests/test_spatial_core_scene.py
 - tests/test_spatial_core_speaker.py
 - tests/test_spatial_core_zones.py
+- tests/test_spatial_mixer_campaign.py
+- tests/test_spatial_mixer_profile.py
+- tests/test_spatial_mixer_rendering.py
+- tests/test_spatial_mixer_web.py
 - tests/test_spatial_safety.py
 - tests/test_spatial_v2_cli.py
 - tests/test_spatial_v2_promotion.py
@@ -97,6 +109,7 @@ or `git grep` against the listed areas before opening source files.
 - examples/subjective_score_example.json
 - profiles/quad_4p0_feedback_example.json
 - profiles/spatial_core_balanced_depth.json
+- profiles/spatial_mixer_universal_default.json
 - spatial_quality_thresholds.json
 
 ## docs
@@ -113,6 +126,7 @@ or `git grep` against the listed areas before opening source files.
 - docs/BRANCH_STRATEGY.md
 - docs/FEEDBACK_LOOP.md
 - docs/REPOSITORY_STATUS.md
+- docs/SEVEN_ZONE_MIXER.md
 - docs/SPATIAL_CORE_V2.md
 - speaker_to_binaural_ctc_handoff.md
 

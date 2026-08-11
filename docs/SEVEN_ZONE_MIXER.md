@@ -78,21 +78,38 @@ more than 1 dB. These are warnings rather than hard stops. Illegal values,
 non-finite values, unsafe paths, a reconstruction error of -80 dB or worse, and
 profile/schema mismatches fail closed.
 
-## A/B and monitor rules
+## Blind comparison and monitor rules
 
 - `REF` is the source stereo excerpt.
-- `A` is the last accepted immutable profile.
-- `B` is the current global draft.
-- Switching uses a 25 ms gain crossfade and the three files start sample-aligned.
+- Versions `1` and `2` conceal which render is the last accepted immutable
+  profile and which is the current global draft. The server randomizes and
+  records that mapping for each preview.
+- All three decoded buffers start from one Web Audio clock event. Switching uses
+  a 25 ms gain crossfade without restarting or seeking independent players.
 - Preview level matching is monitor-only and enabled by default.
-- Monitor output gain, L/R balance, and five-band EQ affect REF/A/B equally.
+- Monitor output gain, L/R balance, and five-band EQ affect all three versions equally.
 - Monitor settings are recorded in promotion evidence but never exported in the
   DSP profile.
 
 Every draft change creates a new SHA-256 profile identity. Comparisons attached
-to older hashes remain in the audit trail but are stale for promotion. Promotion
-requires nine unique tracks and six categories. Objective red warnings do not
-block a listener decision, but promotion then requires a written override reason.
+to older hashes remain in the audit trail but are stale for promotion. The
+campaign pins nine track IDs, their content classes, and their latest evaluated
+excerpt. A comparison is accepted only when its server preview matches the
+current track, accepted baseline, draft hash, monitor, and full level-matched
+mix. The client cannot supply or replace objective gate results.
+
+Promotion requires the complete pinned nine-track set spanning at least six
+categories. Objective red warnings do not block a listener decision, but
+promotion then requires a written override reason. The exported evidence retains
+the preview ID, excerpt, concealed choice, resolved choice, monitor state, and
+server-authored objective result for every track. This written override policy
+supersedes the earlier experimental rule that required every objective gate to
+pass; red status remains visible and auditable rather than silently ignored.
+
+The transport shows the excerpt waveform. Extraction Lab adds seven-zone Solo,
+per-zone RMS, an overlaid 36-band log-frequency spectrum, and the complementary
+reconstruction error. Lab Solo is audition-only; calibration evidence requires
+Solo and Mute to be cleared.
 
 ## Launch
 

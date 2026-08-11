@@ -12,7 +12,9 @@ Spatial Core V2.1 creates a lossless M/S seven-zone scene plus an AmbiX FOA bed,
 
 ### Seven-zone listener calibration mixer
 
-Build one universal seven-zone configuration through local cached A/B excerpts:
+Build one universal seven-zone configuration through local cached, server-bound
+blind excerpts. Versions 1 and 2 share one audio clock; promotion requires the
+pinned nine-track/six-class evidence set:
 
 ```bash
 python run_spatial_mixer.py \

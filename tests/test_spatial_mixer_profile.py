@@ -4,6 +4,7 @@ import pytest
 
 from spatial_core.profile import SpatialCoreProfile
 from spatial_mixer import (
+    ExtractionSettings,
     MixerProfile,
     load_mixer_profile,
     mixer_profile_from_spatial_core,
@@ -75,3 +76,21 @@ def test_compact_spatial_profile_converts_to_the_strict_seven_zone_format():
     assert mixer.zones["center_anchor"].distance_m == 2.0
     assert mixer.zones["side_width"].field_gain == pytest.approx(0.30)
     assert mixer.room.late_rt60_s == 0.42
+
+
+def test_profile_loader_accepts_reordered_json_zone_keys_and_canonicalizes_them(tmp_path):
+    profile = MixerProfile.default()
+    payload = profile.to_payload()
+    payload["zones"] = dict(reversed(list(payload["zones"].items())))
+    path = tmp_path / "reordered.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = load_mixer_profile(path)
+
+    assert tuple(loaded.zones) == tuple(profile.zones)
+    assert loaded.profile_hash == profile.profile_hash
+
+
+def test_extraction_front_weight_curve_must_not_rise_toward_high_frequencies():
+    with pytest.raises(ValueError, match="front_side_weight_low"):
+        ExtractionSettings(front_side_weight_low=0.6, front_side_weight_high=0.8)

@@ -143,6 +143,8 @@ class ExtractionSettings:
             raise ValueError("rear_low_hz must be below rear_high_hz")
         if self.air_low_hz >= self.air_high_hz:
             raise ValueError("air_low_hz must be below air_high_hz")
+        if self.front_side_weight_low < self.front_side_weight_high:
+            raise ValueError("front_side_weight_low must be at least front_side_weight_high")
 
 
 @dataclass(frozen=True)
@@ -153,8 +155,9 @@ class MixerProfile:
     renderer_revision: str = RENDERER_REVISION
 
     def __post_init__(self) -> None:
-        if tuple(self.zones) != ZONE_NAMES:
-            raise ValueError("mixer profile zones must contain the canonical seven zones in order")
+        if len(self.zones) != len(ZONE_NAMES) or set(self.zones) != set(ZONE_NAMES):
+            raise ValueError("mixer profile zones must contain the canonical seven zones")
+        object.__setattr__(self, "zones", {name: self.zones[name] for name in ZONE_NAMES})
         for name in OBJECT_ZONE_NAMES:
             if not isinstance(self.zones[name], ObjectZone):
                 raise ValueError(f"{name} must be an object zone")
@@ -220,8 +223,12 @@ def profile_from_payload(payload: object) -> MixerProfile:
     if payload.get("renderer_revision") != RENDERER_REVISION:
         raise ValueError(f"renderer_revision must be {RENDERER_REVISION}")
     raw_zones = payload.get("zones")
-    if not isinstance(raw_zones, Mapping) or tuple(raw_zones) != ZONE_NAMES:
-        raise ValueError("mixer profile zones must contain the canonical seven zones in order")
+    if (
+        not isinstance(raw_zones, Mapping)
+        or len(raw_zones) != len(ZONE_NAMES)
+        or set(raw_zones) != set(ZONE_NAMES)
+    ):
+        raise ValueError("mixer profile zones must contain the canonical seven zones")
     zones: dict[str, ObjectZone | FieldZone] = {}
     for name in ZONE_NAMES:
         raw_zone = raw_zones[name]

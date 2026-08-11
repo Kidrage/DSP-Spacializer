@@ -62,7 +62,7 @@ def create_app(service: MixerService) -> FastAPI:
             category=str(payload.get("category", "")),
             choice=str(payload.get("choice", "")),
             scores=payload.get("scores", {}),
-            objective_gate=payload.get("objective_gate", {}),
+            preview_id=str(payload.get("preview_id", "")),
             notes=str(payload.get("notes", "")),
         )
 
@@ -72,9 +72,25 @@ def create_app(service: MixerService) -> FastAPI:
 
     @app.get("/api/audio/{preview_id}/{variant}")
     def audio(preview_id: str, variant: str):
-        if not re.fullmatch(r"[0-9a-f]{24}", preview_id) or variant not in {"reference", "a", "b"}:
+        if not re.fullmatch(r"[0-9a-f]{24}", preview_id) or variant not in {
+            "reference",
+            "1",
+            "2",
+        }:
             raise HTTPException(status_code=404, detail="preview audio not found")
-        path = (service.workspace_dir / "previews" / preview_id / f"{variant}.wav").resolve()
+        try:
+            manifest = service._preview_manifest(preview_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail="preview audio not found") from exc
+        blind_order = manifest.get("blind_order")
+        if not isinstance(blind_order, list) or sorted(blind_order) != ["a", "b"]:
+            raise HTTPException(status_code=404, detail="preview audio not found")
+        resolved_variant = (
+            "reference" if variant == "reference" else blind_order[int(variant) - 1]
+        )
+        path = (
+            service.workspace_dir / "previews" / preview_id / f"{resolved_variant}.wav"
+        ).resolve()
         if not path.is_relative_to(service.workspace_dir) or not path.is_file():
             raise HTTPException(status_code=404, detail="preview audio not found")
         return FileResponse(path, media_type="audio/wav", filename=f"{variant}.wav")
