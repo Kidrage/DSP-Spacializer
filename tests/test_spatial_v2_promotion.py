@@ -1,6 +1,11 @@
 import pytest
+import numpy as np
 
-from spatial_core import evaluate_clarity_gate, evaluate_promotion_gate
+from spatial_core import (
+    evaluate_clarity_gate,
+    evaluate_promotion_gate,
+    measure_clarity_metrics,
+)
 
 
 def _record(
@@ -86,3 +91,22 @@ def test_clarity_gate_checks_width_transients_and_four_bands():
         "band_delta_db.low_mid",
         "band_delta_db.presence",
     }
+
+
+def test_clarity_gate_rejects_non_finite_metrics():
+    metrics = {
+        "mid_side_balance_delta_db": float("nan"),
+        "crest_delta_db": 0.0,
+        "fast_change_delta_db": 0.0,
+        "band_delta_db": {band: 0.0 for band in ("sub", "bass", "low_mid", "presence")},
+    }
+
+    with pytest.raises(ValueError, match="must be finite"):
+        evaluate_clarity_gate(metrics)
+
+
+def test_clarity_measurement_rejects_silent_excerpts():
+    silence = np.zeros((4_096, 2), dtype=np.float32)
+
+    with pytest.raises(ValueError, match="non-silent"):
+        measure_clarity_metrics(silence, silence, 48_000)

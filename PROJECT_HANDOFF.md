@@ -204,12 +204,15 @@
   `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_core_v2p1_candidates_reviewed/`;
   generated audio remains untracked. All files are 48 kHz stereo float WAV,
   and the limiter is inactive for all three after peak-aware gain matching.
-- Validation: 123 pytest tests, focused Ruff, text-integrity, and
+- Validation: 125 pytest tests, focused Ruff, text-integrity, and
   `git diff --check` pass. The objective clarity gate remains RED: all three
   exceed the 1 dB M/S-balance delta; the wide orchestral candidate also fails
   crest, low-mid, and presence thresholds. These are audition candidates, not
   promoted defaults. The promotion evaluator now requires an explicit
   objective-clarity pass for every paired track.
+- Objective clarity measurement and classification fail closed: silent audio,
+  non-finite samples, and non-finite metric values are rejected before any
+  promotion decision.
 <!-- AGENT_NOTES_END -->
 
 ## Mandatory Update Rule
