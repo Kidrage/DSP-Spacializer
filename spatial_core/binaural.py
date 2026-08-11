@@ -11,7 +11,7 @@ from scipy.spatial.transform import Rotation
 from .foa import encode_mono_foa
 from .hrtf import InterpolatedHrir, SofaHrirDatabase
 from .motion import ListenerTrajectory, MicroMotion, relative_direction
-from .rendering import RenderResult, linked_peak_limit
+from .rendering import RenderResult, linked_peak_limiter
 from .scene import SpatialObject, SpatialScene
 
 
@@ -53,6 +53,14 @@ def _apply_hrir(signal: np.ndarray, hrir: InterpolatedHrir) -> np.ndarray:
     return np.asarray(output, dtype=np.float32)
 
 
+def _apply_common_field_compensation(audio: np.ndarray, correction_ir: np.ndarray) -> np.ndarray:
+    value = np.asarray(audio, dtype=np.float32)
+    output = np.zeros((value.shape[0] + correction_ir.size - 1, 2), dtype=np.float32)
+    for ear in range(2):
+        output[:, ear] = fftconvolve(value[:, ear], correction_ir, mode="full").astype(np.float32)
+    return output
+
+
 def _size_rays(item: SpatialObject) -> list[tuple[float, float, float]]:
     if item.size <= 1e-6:
         return [(item.azimuth_deg, item.elevation_deg, 1.0)]
@@ -65,7 +73,10 @@ def _size_rays(item: SpatialObject) -> list[tuple[float, float, float]]:
         (item.azimuth_deg, item.elevation_deg - elevation_spread),
         (item.azimuth_deg, item.elevation_deg + elevation_spread),
     ]
-    weight = 1.0 / np.sqrt(len(directions))
+    # Every ray carries the same source signal and nearby HRIRs remain highly
+    # correlated. Amplitude-normalize the copies instead of treating them as
+    # independent energy sources.
+    weight = 1.0 / len(directions)
     return [(azimuth, elevation, weight) for azimuth, elevation in directions]
 
 
@@ -237,7 +248,9 @@ class SofaBinauralRenderer:
             diffuse_foa[: scene.num_frames] += scene.bed.audio
         if np.any(diffuse_foa):
             self._render_foa(database, diffuse_foa, output, scene.sample_rate)
-        limited, limiter_gain = linked_peak_limit(output)
+        output = _apply_common_field_compensation(output, database.timbre_compensation_ir)
+        limited, limiter_report = linked_peak_limiter(output, scene.sample_rate)
+        limiter_gain = 10.0 ** (-float(limiter_report["max_gain_reduction_db"]) / 20.0)
         diagnostics: dict[str, object] = {
             "engine": "spatial-v2-sofa",
             "sofa": str(database.path),
@@ -251,7 +264,11 @@ class SofaBinauralRenderer:
             ),
             "max_sofa_coverage_error_deg": max_coverage_error,
             "sofa_front_reference_gain": database.front_reference_gain,
+            "hrtf_timbre_compensation": "front-common-field",
+            "hrtf_compensation_max_boost_db": database.timbre_compensation_max_boost_db,
+            "hrtf_compensation_max_cut_db": database.timbre_compensation_max_cut_db,
             "limiter_gain": limiter_gain,
+            "limiter": limiter_report,
             "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
         }
         return RenderResult(limited, scene.sample_rate, diagnostics)

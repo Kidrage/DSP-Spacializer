@@ -9,12 +9,12 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-10T07:29:56.323490+00:00`
+- Generated at: `2026-08-11T02:30:27.200730+00:00`
 
 ## Current State
 
-- Branch: `chore/remove-retired-branding`
-- HEAD: `d844183`
+- Branch: `fix/binaural-timbre-preservation`
+- HEAD: `98d462b`
 - Indexed paths: 98
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -60,8 +60,8 @@
 
 ### Categories
 
-- code: 62 files, 363644 bytes
-- literature: 24 files, 167281 bytes
+- code: 62 files, 371688 bytes
+- literature: 24 files, 167929 bytes
 - other: 3 files, 81607 bytes
 - structured_data: 9 files, 6704 bytes
 
@@ -89,6 +89,10 @@
 
 ## Change History
 
+- `98d462b 2026-08-11 test: preserve binaural interaural cues`
+- `823d5bb 2026-08-11 fix: preserve binaural timbre and gain staging`
+- `f57595b 2026-08-10 Merge pull request #5 from Kidrage/chore/remove-retired-branding`
+- `bb467fa 2026-08-10 docs: refresh naming-isolation handoff`
 - `d844183 2026-08-10 test: block retired identifiers in every file type`
 - `8fb191c 2026-08-10 refactor: remove retired company identifiers`
 - `4cf12cc 2026-08-10 Merge pull request #4 from Kidrage/feat/spatial-core-v2-s1`
@@ -105,14 +109,10 @@
 - `b4a3ad1 2026-06-18 docs(feedback): add feedback loop commands to README`
 - `a7036a0 2026-06-18 docs(feedback): describe suggestion loop closure`
 - `084cc8c 2026-06-18 test(feedback): cover profile suggestion rules`
-- `3be4a85 2026-06-18 feat(feedback): add tuning profile suggestion CLI`
-- `dc16e88 2026-06-18 feat(feedback): suggest tuning profiles from evaluation records`
-- `d76b53f 2026-06-18 docs(feedback): document DSP feedback loop`
-- `13b9f28 2026-06-18 test(feedback): cover subjective evaluation records`
 
 ## Current Changes
 
-- `## chore/remove-retired-branding`
+- `## fix/binaural-timbre-preservation`
 
 ## Related Repositories
 
@@ -183,7 +183,14 @@
 ## Agent Notes
 
 <!-- AGENT_NOTES_START -->
-- Add durable decisions, constraints, or cross-agent context here.
+- 2026-08-11: Spatial Core V2 binaural now applies one bounded frontal
+  common-field correction to both ears, amplitude-normalizes coherent size
+  rays, and uses the linked local limiter. Legacy rendering remains unchanged.
+- Fixed listening renders and their spectral/limiter evidence are external at
+  `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_core_v2_candidates_fixed/`;
+  audio remains untracked by repository policy.
+- Validation at `98d462b`: 91 pytest tests and focused Ruff checks passed; the
+  measured KEMAR equal-tone check is within 1.7 dB of 1 kHz from 50 Hz to 8 kHz.
 <!-- AGENT_NOTES_END -->
 
 ## Mandatory Update Rule
