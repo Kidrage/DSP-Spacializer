@@ -9,14 +9,12 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-11T04:46:30.541723+00:00`
+- Generated at: `2026-08-11T04:52:32.816395+00:00`
 
 ## Current State
 
 - Branch: `feat/spatial-core-v2p1-depth-clarity`
-- HEAD: `d03efea`
-- HEAD records the last material code commit captured by the generator; the
-  canonical handoff is committed immediately afterward as a docs-only commit.
+- HEAD: `b094a4b`
 - Indexed paths: 105
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -62,8 +60,8 @@
 
 ### Categories
 
-- code: 68 files, 411815 bytes
-- literature: 24 files, 174062 bytes
+- code: 68 files, 415504 bytes
+- literature: 24 files, 174394 bytes
 - other: 3 files, 81607 bytes
 - structured_data: 10 files, 7076 bytes
 
@@ -91,6 +89,8 @@
 
 ## Change History
 
+- `b094a4b 2026-08-11 fix: enforce Spatial Core promotion contracts`
+- `3b1d086 2026-08-11 docs: refresh Spatial Core V2.1 handoff`
 - `d03efea 2026-08-11 fix: address Spatial Core V2.1 review findings`
 - `8566d3f 2026-08-11 feat: add Spatial Core V2.1 clarity and depth`
 - `8e4041f 2026-08-11 Merge pull request #6 from Kidrage/fix/binaural-timbre-preservation`
@@ -109,8 +109,6 @@
 - `0aca659 2026-08-10 feat: add Spatial Core V2 scene format and FOA builder`
 - `0701a0a 2026-08-10 Merge pull request #3 from Kidrage/feat/dsp-feedback-loop-s1`
 - `071435b 2026-08-10 chore: add repository onboarding and CI`
-- `647e724 2026-06-29 Freeze Phase 5A V3.2 stable baseline`
-- `1fd9d4c 2026-06-24 implement Phase 5A listening candidates and calibration`
 
 ## Current Changes
 
@@ -186,6 +184,9 @@
 ## Agent Notes
 
 <!-- AGENT_NOTES_START -->
+- The generated HEAD field intentionally records the last material code commit;
+  the canonical handoff is committed immediately afterward in a docs-only
+  commit, avoiding a recursive self-hash requirement.
 - 2026-08-11: Spatial Core V2 binaural now applies one bounded frontal
   common-field correction to both ears, amplitude-normalizes coherent size
   rays, and uses the linked local limiter. Legacy rendering remains unchanged.
