@@ -9,13 +9,13 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-11T04:56:10.139757+00:00`
+- Generated at: `2026-08-11T09:07:52.292114+00:00`
 
 ## Current State
 
-- Branch: `fix/clarity-gate-nonfinite`
-- HEAD: `5fe5c77`
-- Indexed paths: 105
+- Branch: `feat/seven-zone-calibration-mixer`
+- HEAD: `73af3f4`
+- Indexed paths: 121
 - Inventory truncated: `false`
 - Inaccessible paths: 0
 - Scan mode: complete path/metadata inventory; no bulk content read; no symlink traversal.
@@ -43,15 +43,18 @@
 
 | Route | Files |
 |---|---:|
-| `.` | 45 |
-| `tests` | 22 |
+| `.` | 46 |
+| `tests` | 26 |
 | `spatial_core` | 15 |
+| `docs` | 5 |
+| `web_ui` | 5 |
 | `.codex` | 4 |
 | `config` | 4 |
-| `docs` | 4 |
 | `scripts` | 4 |
+| `spatial_mixer` | 4 |
 | `examples` | 3 |
-| `profiles` | 2 |
+| `profiles` | 3 |
+| `web_ui/static` | 3 |
 | `.github` | 1 |
 | `.github/workflows` | 1 |
 | `input_audio` | 1 |
@@ -60,20 +63,23 @@
 
 ### Categories
 
-- code: 68 files, 416946 bytes
-- literature: 24 files, 174616 bytes
-- other: 3 files, 81607 bytes
-- structured_data: 10 files, 7076 bytes
+- code: 80 files, 526733 bytes
+- literature: 25 files, 184453 bytes
+- other: 5 files, 99136 bytes
+- structured_data: 11 files, 8986 bytes
 
 ### Common Extensions
 
-- `.py`: 68
-- `.md`: 21
-- `.json`: 6
+- `.py`: 79
+- `.md`: 22
+- `.json`: 7
 - `.yml`: 4
 - `.txt`: 3
 - `[no extension]`: 2
 - `.ipynb`: 1
+- `.js`: 1
+- `.html`: 1
+- `.css`: 1
 
 ### Schema / Model / Interface Candidates
 
@@ -89,6 +95,10 @@
 
 ## Change History
 
+- `73af3f4 2026-08-11 fix: harden blind calibration workflow`
+- `83ba9ee 2026-08-11 feat: add seven-zone calibration mixer`
+- `d87b54a 2026-08-11 Merge pull request #8 from Kidrage/fix/clarity-gate-nonfinite`
+- `d5b016a 2026-08-11 docs: refresh clarity-gate handoff`
 - `5fe5c77 2026-08-11 fix: fail closed on invalid clarity metrics`
 - `1c5b8f6 2026-08-11 Merge pull request #7 from Kidrage/feat/spatial-core-v2p1-depth-clarity`
 - `5e54902 2026-08-11 docs: refresh promotion-contract handoff`
@@ -105,14 +115,10 @@
 - `d844183 2026-08-10 test: block retired identifiers in every file type`
 - `8fb191c 2026-08-10 refactor: remove retired company identifiers`
 - `4cf12cc 2026-08-10 Merge pull request #4 from Kidrage/feat/spatial-core-v2-s1`
-- `954ffa0 2026-08-10 docs: refresh Spatial Core handoff`
-- `77dec30 2026-08-10 fix: tighten Spatial Core V2 rendering contracts`
-- `8a95fc0 2026-08-10 feat: expose opt-in Spatial Core V2 workflow`
-- `dc11cff 2026-08-10 feat: add SOFA binaural and quad speaker renderers`
 
 ## Current Changes
 
-- `## fix/clarity-gate-nonfinite`
+- `## feat/seven-zone-calibration-mixer`
 
 ## Related Repositories
 
@@ -173,6 +179,7 @@
 - `examples/subjective_score_example.json`
 - `profiles/quad_4p0_feedback_example.json`
 - `profiles/spatial_core_balanced_depth.json`
+- `profiles/spatial_mixer_universal_default.json`
 - `spatial_quality_thresholds.json`
 
 ## Validation and Risks
@@ -187,32 +194,31 @@
 - The generated HEAD field intentionally records the last material code commit;
   the canonical handoff is committed immediately afterward in a docs-only
   commit, avoiding a recursive self-hash requirement.
-- 2026-08-11: Spatial Core V2 binaural now applies one bounded frontal
-  common-field correction to both ears, amplitude-normalizes coherent size
-  rays, and uses the linked local limiter. Legacy rendering remains unchanged.
-- Fixed listening renders and their spectral/limiter evidence are external at
-  `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_core_v2_candidates_fixed/`;
-  audio remains untracked by repository policy.
-- Validation at `98d462b`: 91 pytest tests and focused Ruff checks passed; the
-  measured KEMAR equal-tone check is within 1.7 dB of 1 kHz from 50 Hz to 8 kHz.
-- 2026-08-11: V2.1 adds lossless seven-zone M/S construction, a strict compact
-  profile, the opt-in geometry-based `balanced-depth` room, minimum-phase
-  common-field correction, and post-sum mastered-RMS matching constrained by
-  peak headroom. Legacy, scene-manifest, `small-dry`, and `off` paths remain
-  compatible.
-- Reviewed three-track listening renders and evidence are external at
-  `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_core_v2p1_candidates_reviewed/`;
-  generated audio remains untracked. All files are 48 kHz stereo float WAV,
-  and the limiter is inactive for all three after peak-aware gain matching.
-- Validation: 125 pytest tests, focused Ruff, text-integrity, and
-  `git diff --check` pass. The objective clarity gate remains RED: all three
-  exceed the 1 dB M/S-balance delta; the wide orchestral candidate also fails
-  crest, low-mid, and presence thresholds. These are audition candidates, not
-  promoted defaults. The promotion evaluator now requires an explicit
-  objective-clarity pass for every paired track.
-- Objective clarity measurement and classification fail closed: silent audio,
-  non-finite samples, and non-finite metric values are rejected before any
-  promotion decision.
+- 2026-08-11: commits `83ba9ee` and `73af3f4` add the opt-in seven-zone
+  calibration mixer, strict `spatial_mixer_profile/1.0`, local web console, and
+  offline `--mixer-profile` render path. Legacy rendering remains unchanged.
+- The universal campaign pins nine tracks across six content classes. Blind
+  versions share one Web Audio clock; server manifests bind track, excerpt,
+  accepted/draft hashes, monitor, audition state, objective gate, and resolved
+  choice. The client cannot submit objective evidence.
+- Promotion requires all nine pinned comparisons. A red objective gate remains
+  visible and requires a written reason retained in immutable evidence. This
+  explicit, auditable override supersedes the earlier experimental all-pass
+  requirement; it does not silently turn a failed metric into a pass.
+- The console includes waveform display, four direct-object strips, three FOA
+  field strips, room controls, monitor-only EQ, and an Extraction Lab with
+  seven-zone Solo, RMS, 36-band spectra, and complementary reconstruction check.
+- Real-library validation found 37 tracks and pinned the intended nine. A real
+  measured-SOFA three-second preview completed in about 2.1 seconds; REF,
+  version 1, version 2, static assets, and Extraction Lab endpoints returned 200.
+- Generated campaign state and preview audio remain external at
+  `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_mixer_calibration/`.
+  The local console is available at `http://127.0.0.1:8765` while the launcher
+  process remains running.
+- Validation: 143 pytest tests, focused Ruff, JavaScript syntax,
+  text-integrity, `git diff --check`, HTTP endpoint checks, and a 1440 x 1100
+  Chrome screenshot passed. Whole-repository Ruff still reports nine unrelated
+  pre-existing findings in legacy files and the old notebook schema.
 <!-- AGENT_NOTES_END -->
 
 ## Mandatory Update Rule
