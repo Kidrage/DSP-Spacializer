@@ -9,12 +9,12 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-11T04:45:58.189241+00:00`
+- Generated at: `2026-08-11T04:46:30.541723+00:00`
 
 ## Current State
 
 - Branch: `feat/spatial-core-v2p1-depth-clarity`
-- HEAD: `8566d3f`
+- HEAD: `d03efea`
 - Indexed paths: 105
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -61,7 +61,7 @@
 ### Categories
 
 - code: 68 files, 411815 bytes
-- literature: 24 files, 173596 bytes
+- literature: 24 files, 174062 bytes
 - other: 3 files, 81607 bytes
 - structured_data: 10 files, 7076 bytes
 
@@ -89,6 +89,7 @@
 
 ## Change History
 
+- `d03efea 2026-08-11 fix: address Spatial Core V2.1 review findings`
 - `8566d3f 2026-08-11 feat: add Spatial Core V2.1 clarity and depth`
 - `8e4041f 2026-08-11 Merge pull request #6 from Kidrage/fix/binaural-timbre-preservation`
 - `1831844 2026-08-11 docs: refresh binaural fix handoff`
@@ -108,25 +109,10 @@
 - `071435b 2026-08-10 chore: add repository onboarding and CI`
 - `647e724 2026-06-29 Freeze Phase 5A V3.2 stable baseline`
 - `1fd9d4c 2026-06-24 implement Phase 5A listening candidates and calibration`
-- `65d65d5 2026-06-18 docs: update README with bilingual feedback loop guide`
 
 ## Current Changes
 
 - `## feat/spatial-core-v2p1-depth-clarity`
-- ` M CLAUDE.md`
-- ` M PROJECT_HANDOFF.md`
-- ` M docs/SPATIAL_CORE_V2.md`
-- ` M spatial_core/__init__.py`
-- ` M spatial_core/binaural.py`
-- ` M spatial_core/builder.py`
-- ` M spatial_core/evaluation.py`
-- ` M spatial_core/profile.py`
-- ` M spatial_core/room.py`
-- ` M tests/test_spatial_core_binaural.py`
-- ` M tests/test_spatial_core_foa.py`
-- ` M tests/test_spatial_core_profile.py`
-- ` M tests/test_spatial_core_room.py`
-- ` M tests/test_spatial_v2_promotion.py`
 
 ## Related Repositories
 
