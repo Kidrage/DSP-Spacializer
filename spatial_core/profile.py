@@ -41,7 +41,10 @@ class SpatialCoreProfile:
 
     def __post_init__(self) -> None:
         for name, (minimum, maximum) in PARAMETER_RANGES.items():
-            value = float(getattr(self, name))
+            raw_value = getattr(self, name)
+            if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
+                raise ValueError(f"{name} must be numeric")
+            value = float(raw_value)
             if not isfinite(value) or not minimum <= value <= maximum:
                 raise ValueError(f"{name} must be within [{minimum}, {maximum}]")
 

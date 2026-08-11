@@ -3,7 +3,7 @@
 from .adapters import CtcOutputAdapter
 from .builder import build_scene
 from .binaural import SofaBinauralRenderer, default_direct_ratio, distance_gain_db
-from .evaluation import evaluate_clarity_gate, evaluate_promotion_gate
+from .evaluation import evaluate_clarity_gate, evaluate_promotion_gate, measure_clarity_metrics
 from .foa import decode_foa_projection, encode_mono_foa, foa_direction_vector
 from .hrtf import InterpolatedHrir, SofaHrirDatabase
 from .motion import ListenerPose, ListenerTrajectory, MicroMotion
@@ -45,6 +45,7 @@ __all__ = [
     "foa_direction_vector",
     "load_scene",
     "load_spatial_profile",
+    "measure_clarity_metrics",
     "save_scene",
     "vbap_gains",
 ]

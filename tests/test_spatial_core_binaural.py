@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 import sofar
-from scipy.signal import butter, firwin2, sosfiltfilt
+from scipy.signal import firwin2
 
 from spatial_core import (
     FoaBed,
@@ -15,6 +15,8 @@ from spatial_core import (
     SpatialObject,
     SpatialScene,
     build_scene,
+    evaluate_clarity_gate,
+    measure_clarity_metrics,
 )
 from spatial_core.binaural import _late_reverb_foa, _match_mastered_loudness
 
@@ -436,7 +438,7 @@ def test_seeded_micro_motion_is_bounded_and_repeatable():
     assert np.max(np.abs(first_angles[:, 1])) <= 3.0
 
 
-def test_default_scene_preserves_static_clarity_metrics(tmp_path):
+def test_default_scene_reports_end_to_end_clarity_gate(tmp_path):
     _write_test_sofa(tmp_path / "test.sofa")
     sample_rate = 48_000
     time = np.arange(sample_rate, dtype=np.float64) / sample_rate
@@ -462,21 +464,12 @@ def test_default_scene_preserves_static_clarity_metrics(tmp_path):
         block_size=8_192,
     ).render(scene).audio[: stereo.shape[0]]
 
-    def clarity_metrics(audio):
-        filtered = sosfiltfilt(
-            butter(4, [250.0, 5_000.0], btype="bandpass", fs=sample_rate, output="sos"),
-            audio,
-            axis=0,
-        )
-        def rms(value):
-            return np.sqrt(np.mean(np.asarray(value, dtype=float) ** 2)) + 1e-12
-        return np.asarray(
-            [
-                20.0 * np.log10(np.max(np.abs(filtered)) / rms(filtered)),
-                20.0 * np.log10(rms(np.diff(filtered, axis=0)) / rms(filtered)),
-            ]
-        )
+    metrics = measure_clarity_metrics(stereo, output, sample_rate)
+    gate = evaluate_clarity_gate(metrics)
 
-    delta = clarity_metrics(output) - clarity_metrics(stereo)
-    assert delta[0] >= -1.0
-    assert delta[1] >= -0.5
+    assert gate["pass"] is False
+    assert set(gate["failures"]) == {
+        "mid_side_balance_delta_db",
+        "band_delta_db.sub",
+        "band_delta_db.presence",
+    }

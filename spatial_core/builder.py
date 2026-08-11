@@ -20,6 +20,10 @@ def _resolve_profile(
         return profile
     if profile is None:
         return SpatialCoreProfile()
+    names = {item.name for item in fields(SpatialCoreProfile)}
+    unknown = sorted(set(profile) - names)
+    if unknown:
+        raise ValueError(f"unknown spatial profile parameter: {unknown[0]}")
     defaults = SpatialCoreProfile()
     values = {
         item.name: profile.get(item.name, getattr(defaults, item.name))

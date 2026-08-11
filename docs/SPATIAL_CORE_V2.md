@@ -31,11 +31,13 @@ lossless M/S seven-zone scene + AmbiX FOA bed
 - Distance is bounded to 0.1–10 m. Both backends apply gain and air absorption;
   the binaural backend additionally applies DRR, early reflections, and the
   late field.
-- Stereo-built scenes retain the input program RMS as scene metadata. After
-  object and bed summation, one bounded global gain matches that mastered
-  reference before limiting. No per-object or FOA-bed distance makeup is used,
-  so their intended balance is preserved while distance remains audible through
-  DRR, reflection timing, direction, and air absorption.
+- Stereo-built scenes retain the input program RMS as scene metadata. In the
+  binaural backend, one bounded global gain approaches that mastered reference
+  after object and bed summation, stopping at available 0.98 peak headroom to
+  preserve dynamics. It may therefore remain below source RMS. No per-object
+  or FOA-bed distance makeup is used, so their intended balance is preserved
+  while distance remains audible through DRR, reflection timing, direction,
+  and air absorption. The quad backend does not apply this headphone-only gain.
 - Object size spreads amplitude-normalized coherent rays, so changing size does
   not raise the source level. Diffusion uses an equal-power positional/diffuse
   split.
@@ -104,6 +106,9 @@ starts the late field 10 ms after the last early reflection, and limits the
 late field to 180 Hz–8 kHz. Center-anchor room send is 3 dB below other front
 objects. `direct_ratio` scales both early and late wet sends around the default
 0.78 reference. Sources outside the modeled room fail validation.
+The individual compact-profile ranges are not a guarantee that every distance,
+azimuth, and elevation combination fits this fixed room; incompatible
+combinations fail before HRIR convolution.
 `--speaker-layout` accepts the public layout format shown in
 `examples/quad_layout_example.json`.
 
@@ -182,6 +187,7 @@ time keyframes. Yaw/pitch/roll are interpolated with SLERP and endpoints hold.
 Legacy remains default until at least three uniquely identified paired tracks
 meet all criteria:
 
+- every track passes its objective clarity gate;
 - mean externalization improvement ≥ 0.5;
 - mean depth improvement ≥ 0.5;
 - no tracked timbre utility regresses by more than 0.5.
@@ -194,3 +200,5 @@ Before subjective promotion, each candidate also runs the objective clarity
 gate: absolute M/S-balance delta ≤ 1 dB, crest delta ≥ -1 dB, fast-change delta
 ≥ -0.5 dB, and absolute sub/bass/low-mid/presence deltas ≤ 2 dB. A failed
 objective gate remains a listening candidate and is not promoted.
+`evaluate_promotion_gate()` requires `objective_clarity_pass: true` on every
+paired record; a missing or false value blocks promotion.

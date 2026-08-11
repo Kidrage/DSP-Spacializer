@@ -3,7 +3,13 @@ import pytest
 from spatial_core import evaluate_clarity_gate, evaluate_promotion_gate
 
 
-def _record(track_id, externalization_delta=0.5, depth_delta=0.5, clarity_delta=0.0):
+def _record(
+    track_id,
+    externalization_delta=0.5,
+    depth_delta=0.5,
+    clarity_delta=0.0,
+    objective_clarity_pass=True,
+):
     return {
         "track_id": track_id,
         "legacy": {"externalization": 3, "depth": 3, "vocal_clarity": 4},
@@ -12,6 +18,7 @@ def _record(track_id, externalization_delta=0.5, depth_delta=0.5, clarity_delta=
             "depth": 3 + depth_delta,
             "vocal_clarity": 4 + clarity_delta,
         },
+        "objective_clarity_pass": objective_clarity_pass,
     }
 
 
@@ -29,6 +36,15 @@ def test_promotion_gate_blocks_large_timbre_regression():
     )
     assert result["promote"] is False
     assert result["worst_timbre_regression"] == pytest.approx(0.6)
+
+
+def test_promotion_gate_requires_objective_clarity_pass_for_every_track():
+    result = evaluate_promotion_gate(
+        [_record("a"), _record("b", objective_clarity_pass=False), _record("c")]
+    )
+
+    assert result["promote"] is False
+    assert result["objective_clarity_pass"] is False
 
 
 def test_clarity_gate_checks_width_transients_and_four_bands():

@@ -64,3 +64,10 @@ def test_builder_applies_compact_front_spatial_parameters():
     assert all(item.direct_ratio == 0.7 for item in scene.objects)
     assert all(item.gain_db == 0.0 for item in scene.objects)
     assert scene.metadata["mastered_reference_rms"] == pytest.approx(0.0)
+
+
+def test_builder_rejects_unknown_mapping_profile_parameters():
+    stereo = np.zeros((2048, 2), dtype=np.float32)
+
+    with pytest.raises(ValueError, match="unknown spatial profile parameter"):
+        build_scene(stereo, profile={"front_distance_m": 1.6, "notes": 1.0})

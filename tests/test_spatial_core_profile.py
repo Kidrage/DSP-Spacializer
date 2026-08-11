@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from spatial_core import load_spatial_profile
+from spatial_core import SpatialCoreProfile, load_spatial_profile
 
 
 def test_spatial_profile_loads_compact_parameters(tmp_path):
@@ -87,6 +87,11 @@ def test_spatial_profile_rejects_boolean_parameter_values(tmp_path):
 
     with pytest.raises(ValueError, match="center_anchor must be numeric"):
         load_spatial_profile(path)
+
+
+def test_spatial_profile_constructor_rejects_boolean_values():
+    with pytest.raises(ValueError, match="center_anchor must be numeric"):
+        SpatialCoreProfile(center_anchor=True)
 
 
 @pytest.mark.parametrize(

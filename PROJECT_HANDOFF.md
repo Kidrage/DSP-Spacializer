@@ -15,6 +15,8 @@
 
 - Branch: `feat/spatial-core-v2p1-depth-clarity`
 - HEAD: `d03efea`
+- HEAD records the last material code commit captured by the generator; the
+  canonical handoff is committed immediately afterward as a docs-only commit.
 - Indexed paths: 105
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -201,11 +203,12 @@
   `/Users/saintpeter/Desktop/Coding/spatializer_outputs/spatial_core_v2p1_candidates_reviewed/`;
   generated audio remains untracked. All files are 48 kHz stereo float WAV,
   and the limiter is inactive for all three after peak-aware gain matching.
-- Validation: 120 pytest tests, focused Ruff, text-integrity, and
+- Validation: 123 pytest tests, focused Ruff, text-integrity, and
   `git diff --check` pass. The objective clarity gate remains RED: all three
   exceed the 1 dB M/S-balance delta; the wide orchestral candidate also fails
   crest, low-mid, and presence thresholds. These are audition candidates, not
-  promoted defaults.
+  promoted defaults. The promotion evaluator now requires an explicit
+  objective-clarity pass for every paired track.
 <!-- AGENT_NOTES_END -->
 
 ## Mandatory Update Rule
