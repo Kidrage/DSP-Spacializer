@@ -64,7 +64,19 @@ def _write_colored_test_sofa(path):
         np.asarray([0, 50, 100, 250, 1_000, 3_000, 8_000, 24_000]) / 24_000,
         [0.05, 0.05, 0.15, 0.4, 1.0, 5.0, 0.7, 0.5],
     )
-    sofa.Data_IR = np.tile(common_response, (len(directions), 2, 1))
+    sofa.Data_IR = np.zeros((len(directions), 2, common_response.size + 8), dtype=float)
+    for index, (azimuth, _elevation) in enumerate(directions):
+        lateral = np.sin(np.deg2rad(azimuth))
+        left_delay = 5 + int(round(max(0.0, -lateral) * 3))
+        right_delay = 5 + int(round(max(0.0, lateral) * 3))
+        left_gain = 1.0 - max(0.0, -lateral) * 0.25
+        right_gain = 1.0 - max(0.0, lateral) * 0.25
+        sofa.Data_IR[index, 0, left_delay : left_delay + common_response.size] = (
+            left_gain * common_response
+        )
+        sofa.Data_IR[index, 1, right_delay : right_delay + common_response.size] = (
+            right_gain * common_response
+        )
     sofa.Data_Delay = np.zeros((len(directions), 2), dtype=float)
     sofa.Data_SamplingRate = 48_000
     sofar.write_sofa(path, sofa)
@@ -165,6 +177,26 @@ def test_binaural_renderer_removes_common_hrtf_timbre_coloration(tmp_path):
 
     assert np.max(np.abs(relative_db)) < 4.0
     assert result.diagnostics["hrtf_timbre_compensation"] == "front-common-field"
+
+
+def test_common_field_compensation_preserves_interaural_cues(tmp_path):
+    _write_colored_test_sofa(tmp_path / "test.sofa")
+    signal = np.zeros(4_096, dtype=np.float32)
+    signal[512] = 0.1
+    scene = SpatialScene(
+        48_000,
+        [SpatialObject("right", "front", signal, azimuth_deg=90.0)],
+    )
+
+    result = SofaBinauralRenderer(tmp_path / "test.sofa", room_enabled=False).render(scene)
+
+    left_peak = int(np.argmax(np.abs(result.audio[:, 0])))
+    right_peak = int(np.argmax(np.abs(result.audio[:, 1])))
+    interaural_level_ratio = (
+        np.max(np.abs(result.audio[:, 1])) / np.max(np.abs(result.audio[:, 0]))
+    )
+    assert right_peak - left_peak == 3
+    assert interaural_level_ratio == pytest.approx(0.75, rel=0.01)
 
 
 def test_binaural_object_size_does_not_increase_coherent_level(tmp_path):
