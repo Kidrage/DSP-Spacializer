@@ -7,6 +7,7 @@ from .evaluation import evaluate_clarity_gate, evaluate_promotion_gate, measure_
 from .foa import decode_foa_projection, encode_mono_foa, foa_direction_vector
 from .hrtf import InterpolatedHrir, SofaHrirDatabase
 from .motion import ListenerPose, ListenerTrajectory, MicroMotion
+from .package import ScenePackageError, ScenePackageInfo, validate_scene_package
 from .profile import SpatialCoreProfile, load_spatial_profile
 from .rendering import RenderResult, SceneRenderer
 from .room import EarlyReflection, balanced_depth_reflections
@@ -26,6 +27,8 @@ __all__ = [
     "QuadSpeakerRenderer",
     "RenderResult",
     "SceneRenderer",
+    "ScenePackageError",
+    "ScenePackageInfo",
     "SofaBinauralRenderer",
     "SofaHrirDatabase",
     "Speaker",
@@ -47,5 +50,6 @@ __all__ = [
     "load_spatial_profile",
     "measure_clarity_metrics",
     "save_scene",
+    "validate_scene_package",
     "vbap_gains",
 ]

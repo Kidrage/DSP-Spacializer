@@ -1,8 +1,8 @@
 # Source Index
 
 Repository: /Users/saintpeter/Desktop/Coding/spatializer_outputs/dsp-spatializer
-Tracked filtered files: 121
-High-value indexed files: 109
+Tracked filtered files: 128
+High-value indexed files: 116
 
 Read this file before broad repository exploration. Prefer focused `rg`
 or `git grep` against the listed areas before opening source files.
@@ -47,6 +47,7 @@ or `git grep` against the listed areas before opening source files.
 - spatial_core/foa.py
 - spatial_core/hrtf.py
 - spatial_core/motion.py
+- spatial_core/package.py
 - spatial_core/profile.py
 - spatial_core/rendering.py
 - spatial_core/room.py
@@ -85,6 +86,7 @@ or `git grep` against the listed areas before opening source files.
 - tests/test_spatial_core_scene.py
 - tests/test_spatial_core_speaker.py
 - tests/test_spatial_core_zones.py
+- tests/test_spatial_scene_package.py
 - tests/test_spatial_mixer_campaign.py
 - tests/test_spatial_mixer_profile.py
 - tests/test_spatial_mixer_rendering.py
@@ -104,12 +106,14 @@ or `git grep` against the listed areas before opening source files.
 - config/listener_threshold_calibration.yml
 - config/quality_thresholds.yml
 - config/refine_thresholds.yml
+- examples/build_spatial_scene_package_example.py
 - examples/listener_trajectory_example.json
 - examples/quad_layout_example.json
 - examples/subjective_score_example.json
 - profiles/quad_4p0_feedback_example.json
 - profiles/spatial_core_balanced_depth.json
 - profiles/spatial_mixer_universal_default.json
+- schemas/spatial_scene_package-0.1.schema.json
 - spatial_quality_thresholds.json
 
 ## docs
@@ -123,10 +127,13 @@ or `git grep` against the listed areas before opening source files.
 - Handoff.md
 - PROJECT_HANDOFF.md
 - config/calibration_evidence.md
+- docs/ARCHITECTURE_AND_SIGNAL_FLOW.md
 - docs/BRANCH_STRATEGY.md
 - docs/FEEDBACK_LOOP.md
+- docs/PARAMETER_REFERENCE.md
 - docs/REPOSITORY_STATUS.md
 - docs/SEVEN_ZONE_MIXER.md
+- docs/SPATIAL_SCENE_PACKAGE_V0_1.md
 - docs/SPATIAL_CORE_V2.md
 - speaker_to_binaural_ctc_handoff.md
 

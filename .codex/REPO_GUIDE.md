@@ -29,6 +29,10 @@ Deterministic, non-AI spatializer with a frozen legacy stereo-to-fixed-4.0/binau
   owns all campaign mutations; the browser is not an evidence authority.
 - `docs/SEVEN_ZONE_MIXER.md`: mixing theory, safe listening order, profile and
   campaign contracts, and launch instructions.
+- `docs/ARCHITECTURE_AND_SIGNAL_FLOW.md` and `docs/PARAMETER_REFERENCE.md`:
+  complete legacy/V2 production-chain and tuning-entry reference.
+- `docs/SPATIAL_SCENE_PACKAGE_V0_1.md`, `schemas/`, and `spatial_core/package.py`:
+  renderer-neutral seven-zone master contract and directory/ZIP validator.
 
 ## Commands
 
@@ -55,6 +59,8 @@ python run_spatial_mixer.py --library-dir /absolute/audio/library --sofa /absolu
   server-bound preview evidence. Objective red warnings require a written,
   exported override; they are not silently converted to a pass.
 - Avoid `input_audio/` payloads, `outputs/`, workspace-level `曲库/` and `Output-DSP/`, `.venv/`, caches, notebooks, and binary/audio assets unless explicitly required.
+- Spatial Scene Package v0.1 is fixed at seven mono 48 kHz float WAV assets;
+  FOA is derived at render time and is not the authoritative package payload.
 - Keep generated listener data and suggested tuning profiles external to the stable renderer path.
 
 ## Git and Verification

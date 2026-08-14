@@ -136,6 +136,12 @@ values fail before rendering. The example is
 
 ## Scene interchange
 
+`spatial_core_scene/2.0` is the current runtime render scene. It stores four
+objects plus an already-combined FOA bed, so it is intentionally distinct from
+the renderer-neutral seven-zone master defined by
+[`spatial_scene_package/0.1`](SPATIAL_SCENE_PACKAGE_V0_1.md). The latter retains
+side, rear, and air as independent audio assets and derives FOA at render time.
+
 The `spatial_core_scene` 2.0 JSON manifest points to external WAV assets using
 paths relative to the manifest. Object WAVs must be mono. The optional bed WAV
 must contain exactly four `W,Y,Z,X` channels. Assets are resampled to the

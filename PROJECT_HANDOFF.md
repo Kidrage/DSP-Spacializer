@@ -5,17 +5,17 @@
 
 ## Repository Identity
 
-- Repository ID: `dsp-spatializer-32f0bd60890c`
+- Repository ID: `dsp-spatializer-b2190f40dadb`
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-11T09:07:52.292114+00:00`
+- Generated at: `2026-08-14T04:00:56.127997+00:00`
 
 ## Current State
 
-- Branch: `feat/seven-zone-calibration-mixer`
-- HEAD: `73af3f4`
-- Indexed paths: 121
+- Branch: `feat/spatial-scene-package-v01`
+- HEAD: `05d9438`
+- Indexed paths: 128
 - Inventory truncated: `false`
 - Inaccessible paths: 0
 - Scan mode: complete path/metadata inventory; no bulk content read; no symlink traversal.
@@ -44,35 +44,36 @@
 | Route | Files |
 |---|---:|
 | `.` | 46 |
-| `tests` | 26 |
-| `spatial_core` | 15 |
-| `docs` | 5 |
+| `tests` | 27 |
+| `spatial_core` | 16 |
+| `docs` | 8 |
 | `web_ui` | 5 |
 | `.codex` | 4 |
 | `config` | 4 |
+| `examples` | 4 |
 | `scripts` | 4 |
 | `spatial_mixer` | 4 |
-| `examples` | 3 |
 | `profiles` | 3 |
 | `web_ui/static` | 3 |
 | `.github` | 1 |
 | `.github/workflows` | 1 |
 | `input_audio` | 1 |
+| `schemas` | 1 |
 
 ## Data and File Structure
 
 ### Categories
 
-- code: 80 files, 526733 bytes
-- literature: 25 files, 184453 bytes
+- code: 83 files, 556747 bytes
+- literature: 28 files, 214171 bytes
 - other: 5 files, 99136 bytes
-- structured_data: 11 files, 8986 bytes
+- structured_data: 12 files, 16192 bytes
 
 ### Common Extensions
 
-- `.py`: 79
-- `.md`: 22
-- `.json`: 7
+- `.py`: 82
+- `.md`: 25
+- `.json`: 8
 - `.yml`: 4
 - `.txt`: 3
 - `[no extension]`: 2
@@ -83,7 +84,7 @@
 
 ### Schema / Model / Interface Candidates
 
-- None detected.
+- `schemas/spatial_scene_package-0.1.schema.json`
 
 ## Key Entrypoints and Guides
 
@@ -95,6 +96,11 @@
 
 ## Change History
 
+- `05d9438 2026-08-14 fix: harden scene package validation`
+- `f38d3e6 2026-08-14 docs: refresh spatial scene package handoff`
+- `5b8ef3f 2026-08-14 feat: define spatial scene package v0.1`
+- `c9e5070 2026-08-11 Merge pull request #9 from Kidrage/feat/seven-zone-calibration-mixer`
+- `82bdbb7 2026-08-11 docs: refresh seven-zone mixer handoff`
 - `73af3f4 2026-08-11 fix: harden blind calibration workflow`
 - `83ba9ee 2026-08-11 feat: add seven-zone calibration mixer`
 - `d87b54a 2026-08-11 Merge pull request #8 from Kidrage/fix/clarity-gate-nonfinite`
@@ -110,22 +116,17 @@
 - `1831844 2026-08-11 docs: refresh binaural fix handoff`
 - `98d462b 2026-08-11 test: preserve binaural interaural cues`
 - `823d5bb 2026-08-11 fix: preserve binaural timbre and gain staging`
-- `f57595b 2026-08-10 Merge pull request #5 from Kidrage/chore/remove-retired-branding`
-- `bb467fa 2026-08-10 docs: refresh naming-isolation handoff`
-- `d844183 2026-08-10 test: block retired identifiers in every file type`
-- `8fb191c 2026-08-10 refactor: remove retired company identifiers`
-- `4cf12cc 2026-08-10 Merge pull request #4 from Kidrage/feat/spatial-core-v2-s1`
 
 ## Current Changes
 
-- `## feat/seven-zone-calibration-mixer`
+- `## feat/spatial-scene-package-v01`
 
 ## Related Repositories
 
 ### Remotes
 
-- `origin https://github.com/Kidrage/DSP-Spacializer.git (fetch)`
-- `origin https://github.com/Kidrage/DSP-Spacializer.git (push)`
+- `origin github.com:Kidrage/DSP-Spacializer.git (fetch)`
+- `origin github.com:Kidrage/DSP-Spacializer.git (push)`
 
 ### Submodules
 
@@ -152,9 +153,9 @@
 - `PROJECT_HANDOFF.md`
 - `README.md`
 - `config/calibration_evidence.md`
+- `docs/ARCHITECTURE_AND_SIGNAL_FLOW.md`
 - `docs/BRANCH_STRATEGY.md`
 - `docs/FEEDBACK_LOOP.md`
-- `docs/REPOSITORY_STATUS.md`
 
 ### image
 
@@ -180,6 +181,7 @@
 - `profiles/quad_4p0_feedback_example.json`
 - `profiles/spatial_core_balanced_depth.json`
 - `profiles/spatial_mixer_universal_default.json`
+- `schemas/spatial_scene_package-0.1.schema.json`
 - `spatial_quality_thresholds.json`
 
 ## Validation and Risks
@@ -191,6 +193,16 @@
 ## Agent Notes
 
 <!-- AGENT_NOTES_START -->
+- 2026-08-14: branch `feat/spatial-scene-package-v01` documents the complete
+  legacy/V2 production chain and parameter surface, then adds the strict
+  `spatial_scene_package/0.1` JSON Schema, synthetic example generator, and a
+  public directory/ZIP conformance validator. The package preserves seven
+  independent 48 kHz float WAV zones; FOA remains a derived runtime bed.
+- This milestone does not change DSP rendering, import packages into
+  `SpatialScene`, or implement the six registered fixed-layout renderers.
+  ADM/IAB conversion and consumer distribution coding remain later adapters.
+- Validation for this milestone: 164 pytest tests, targeted Ruff, naming
+  integrity, and `git diff --check` passed. No audio assets are committed.
 - The generated HEAD field intentionally records the last material code commit;
   the canonical handoff is committed immediately afterward in a docs-only
   commit, avoiding a recursive self-hash requirement.
