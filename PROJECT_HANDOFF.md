@@ -9,12 +9,12 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-14T03:53:31.444638+00:00`
+- Generated at: `2026-08-14T03:55:53.329324+00:00`
 
 ## Current State
 
 - Branch: `feat/spatial-scene-package-v01`
-- HEAD: `c9e5070`
+- HEAD: `5b8ef3f`
 - Indexed paths: 128
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -64,8 +64,8 @@
 
 ### Categories
 
-- code: 83 files, 552090 bytes
-- literature: 28 files, 213326 bytes
+- code: 83 files, 552636 bytes
+- literature: 28 files, 214683 bytes
 - other: 5 files, 99136 bytes
 - structured_data: 12 files, 16192 bytes
 
@@ -96,6 +96,7 @@
 
 ## Change History
 
+- `5b8ef3f 2026-08-14 feat: define spatial scene package v0.1`
 - `c9e5070 2026-08-11 Merge pull request #9 from Kidrage/feat/seven-zone-calibration-mixer`
 - `82bdbb7 2026-08-11 docs: refresh seven-zone mixer handoff`
 - `73af3f4 2026-08-11 fix: harden blind calibration workflow`
@@ -115,27 +116,10 @@
 - `823d5bb 2026-08-11 fix: preserve binaural timbre and gain staging`
 - `f57595b 2026-08-10 Merge pull request #5 from Kidrage/chore/remove-retired-branding`
 - `bb467fa 2026-08-10 docs: refresh naming-isolation handoff`
-- `d844183 2026-08-10 test: block retired identifiers in every file type`
 
 ## Current Changes
 
 - `## feat/spatial-scene-package-v01`
-- ` M .codex/REPO_GUIDE.md`
-- ` M .codex/repo_files.txt`
-- ` M .codex/source_index.txt`
-- ` M AGENTS.md`
-- ` M PROJECT_HANDOFF.md`
-- ` M README.md`
-- ` M docs/SPATIAL_CORE_V2.md`
-- ` M requirements.txt`
-- ` M spatial_core/__init__.py`
-- `?? docs/ARCHITECTURE_AND_SIGNAL_FLOW.md`
-- `?? docs/PARAMETER_REFERENCE.md`
-- `?? docs/SPATIAL_SCENE_PACKAGE_V0_1.md`
-- `?? examples/build_spatial_scene_package_example.py`
-- `?? schemas/`
-- `?? spatial_core/package.py`
-- `?? tests/test_spatial_scene_package.py`
 
 ## Related Repositories
 
