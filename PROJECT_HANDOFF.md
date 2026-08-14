@@ -9,12 +9,12 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-14T03:55:53.329324+00:00`
+- Generated at: `2026-08-14T04:00:56.127997+00:00`
 
 ## Current State
 
 - Branch: `feat/spatial-scene-package-v01`
-- HEAD: `5b8ef3f`
+- HEAD: `05d9438`
 - Indexed paths: 128
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -64,8 +64,8 @@
 
 ### Categories
 
-- code: 83 files, 552636 bytes
-- literature: 28 files, 214683 bytes
+- code: 83 files, 556747 bytes
+- literature: 28 files, 214171 bytes
 - other: 5 files, 99136 bytes
 - structured_data: 12 files, 16192 bytes
 
@@ -96,6 +96,8 @@
 
 ## Change History
 
+- `05d9438 2026-08-14 fix: harden scene package validation`
+- `f38d3e6 2026-08-14 docs: refresh spatial scene package handoff`
 - `5b8ef3f 2026-08-14 feat: define spatial scene package v0.1`
 - `c9e5070 2026-08-11 Merge pull request #9 from Kidrage/feat/seven-zone-calibration-mixer`
 - `82bdbb7 2026-08-11 docs: refresh seven-zone mixer handoff`
@@ -114,8 +116,6 @@
 - `1831844 2026-08-11 docs: refresh binaural fix handoff`
 - `98d462b 2026-08-11 test: preserve binaural interaural cues`
 - `823d5bb 2026-08-11 fix: preserve binaural timbre and gain staging`
-- `f57595b 2026-08-10 Merge pull request #5 from Kidrage/chore/remove-retired-branding`
-- `bb467fa 2026-08-10 docs: refresh naming-isolation handoff`
 
 ## Current Changes
 
