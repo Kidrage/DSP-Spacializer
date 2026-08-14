@@ -28,13 +28,17 @@ config/refine_thresholds.yml
 config_center.py
 decorrelator.py
 diagnostics.py
+docs/ARCHITECTURE_AND_SIGNAL_FLOW.md
 docs/BRANCH_STRATEGY.md
 docs/FEEDBACK_LOOP.md
+docs/PARAMETER_REFERENCE.md
 docs/REPOSITORY_STATUS.md
 docs/SEVEN_ZONE_MIXER.md
 docs/SPATIAL_CORE_V2.md
+docs/SPATIAL_SCENE_PACKAGE_V0_1.md
 dsp_utils.py
 energy_manager.py
+examples/build_spatial_scene_package_example.py
 examples/listener_trajectory_example.json
 examples/quad_layout_example.json
 examples/subjective_score_example.json
@@ -58,6 +62,7 @@ scripts/check_text_integrity.py
 scripts/make_evidence_table.py
 scripts/migrate_phase_metrics.py
 scripts/rebuild_batch_manifest.py
+schemas/spatial_scene_package-0.1.schema.json
 spatial_core/__init__.py
 spatial_core/adapters.py
 spatial_core/binaural.py
@@ -66,6 +71,7 @@ spatial_core/evaluation.py
 spatial_core/foa.py
 spatial_core/hrtf.py
 spatial_core/motion.py
+spatial_core/package.py
 spatial_core/profile.py
 spatial_core/rendering.py
 spatial_core/room.py
@@ -103,6 +109,7 @@ tests/test_spatial_mixer_profile.py
 tests/test_spatial_mixer_rendering.py
 tests/test_spatial_mixer_web.py
 tests/test_spatial_safety.py
+tests/test_spatial_scene_package.py
 tests/test_spatial_v2_cli.py
 tests/test_spatial_v2_promotion.py
 tests/test_subjective_feedback.py
