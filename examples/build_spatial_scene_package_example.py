@@ -6,12 +6,17 @@ import argparse
 from hashlib import sha256
 import json
 from pathlib import Path
+import sys
 import zipfile
 
 import numpy as np
 import soundfile as sf
 
-from spatial_core import validate_scene_package
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from spatial_core import validate_scene_package  # noqa: E402
 
 
 ZONE_NAMES = (

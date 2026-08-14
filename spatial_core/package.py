@@ -39,6 +39,10 @@ class ScenePackageInfo:
     zone_names: tuple[str, ...]
 
 
+def _reject_nonfinite_json(constant: str) -> None:
+    raise ScenePackageError(f"non-finite JSON constant is not allowed: {constant}")
+
+
 def _load_schema() -> dict[str, Any]:
     try:
         schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
@@ -103,6 +107,13 @@ def _validate_audio_info(info: Any, relative: str, frame_count: int) -> None:
         raise ScenePackageError(f"audio frame count mismatch: {relative}")
 
 
+def _inspect_audio(source: Any, relative: str) -> Any:
+    try:
+        return sf.info(source)
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise ScenePackageError(f"unable to inspect audio asset: {relative}") from exc
+
+
 def _audio_references(payload: dict[str, Any]) -> list[tuple[str, str]]:
     references = [
         (
@@ -145,7 +156,7 @@ def _validate_directory_assets(root: Path, payload: dict[str, Any]) -> None:
             actual_sha256 = _stream_sha256(stream)
         if actual_sha256 != expected_sha256:
             raise ScenePackageError(f"audio checksum mismatch: {relative}")
-        info = sf.info(path)
+        info = _inspect_audio(path, relative)
         _validate_audio_info(info, relative, frame_count)
 
 
@@ -156,8 +167,6 @@ def _safe_zip_members(archive: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
         raise ScenePackageError("ZIP contains duplicate members")
     result: dict[str, zipfile.ZipInfo] = {}
     for item in members:
-        if item.is_dir():
-            continue
         path = PurePosixPath(item.filename)
         unix_mode = item.external_attr >> 16
         if (
@@ -168,6 +177,10 @@ def _safe_zip_members(archive: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
             or unix_mode & 0o170000 == 0o120000
         ):
             raise ScenePackageError(f"unsafe ZIP member: {item.filename}")
+        if item.is_dir():
+            if item.filename != "audio/":
+                raise ScenePackageError(f"unexpected ZIP directory: {item.filename}")
+            continue
         result[item.filename] = item
     return result
 
@@ -185,7 +198,10 @@ def _validate_zip_package(path: Path) -> tuple[dict[str, Any], int]:
         if manifest_info.file_size > 1024 * 1024:
             raise ScenePackageError("manifest.json exceeds the 1 MiB limit")
         try:
-            payload = json.loads(archive.read(manifest_info).decode("utf-8"))
+            payload = json.loads(
+                archive.read(manifest_info).decode("utf-8"),
+                parse_constant=_reject_nonfinite_json,
+            )
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ScenePackageError("unable to decode ZIP package manifest") from exc
         manifest = _validate_manifest(payload)
@@ -198,12 +214,15 @@ def _validate_zip_package(path: Path) -> tuple[dict[str, Any], int]:
                 "package members must be manifest.json and the seven referenced WAV files"
             )
         for relative, expected_sha256 in references:
-            with archive.open(members[relative], "r") as stream:
-                actual_sha256 = _stream_sha256(stream)
+            try:
+                with archive.open(members[relative], "r") as stream:
+                    actual_sha256 = _stream_sha256(stream)
+            except (OSError, RuntimeError, zipfile.BadZipFile) as exc:
+                raise ScenePackageError(f"unable to read audio asset: {relative}") from exc
             if actual_sha256 != expected_sha256:
                 raise ScenePackageError(f"audio checksum mismatch: {relative}")
             with archive.open(members[relative], "r") as stream:
-                info = sf.info(stream)
+                info = _inspect_audio(stream, relative)
             _validate_audio_info(info, relative, frame_count)
     return manifest, frame_count
 
@@ -217,7 +236,10 @@ def validate_scene_package(source: str | Path) -> ScenePackageInfo:
         if manifest_path.is_symlink() or not manifest_path.is_file():
             raise ScenePackageError("manifest.json must be a regular file")
         try:
-            payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+            payload = json.loads(
+                manifest_path.read_text(encoding="utf-8"),
+                parse_constant=_reject_nonfinite_json,
+            )
         except (OSError, json.JSONDecodeError) as exc:
             raise ScenePackageError(f"unable to read package manifest: {manifest_path}") from exc
         manifest = _validate_manifest(payload)

@@ -201,7 +201,7 @@
 - This milestone does not change DSP rendering, import packages into
   `SpatialScene`, or implement the six registered fixed-layout renderers.
   ADM/IAB conversion and consumer distribution coding remain later adapters.
-- Validation for this milestone: 156 pytest tests, targeted Ruff, naming
+- Validation for this milestone: 164 pytest tests, targeted Ruff, naming
   integrity, and `git diff --check` passed. No audio assets are committed.
 - The generated HEAD field intentionally records the last material code commit;
   the canonical handoff is committed immediately afterward in a docs-only

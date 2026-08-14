@@ -1,6 +1,9 @@
 import hashlib
 import json
 from pathlib import Path
+import stat
+import subprocess
+import sys
 import zipfile
 
 import numpy as np
@@ -155,6 +158,14 @@ def _save_manifest(package: Path, manifest: dict[str, object]) -> None:
     )
 
 
+def _zip_package(package: Path, archive: Path) -> Path:
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
+        for path in sorted(package.rglob("*")):
+            if path.is_file():
+                output.write(path, path.relative_to(package).as_posix())
+    return archive
+
+
 def _replace_bass_audio(package: Path, signal: np.ndarray, sample_rate: int, subtype: str) -> None:
     path = package / "audio" / "bass.wav"
     sf.write(path, signal, sample_rate, subtype=subtype)
@@ -177,11 +188,7 @@ def test_valid_directory_package_passes_end_to_end_validation(tmp_path):
 
 def test_valid_zip_package_uses_the_same_public_validator(tmp_path):
     package = _write_package(tmp_path / "unpacked")
-    archive = tmp_path / "example.spatialpkg"
-    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as output:
-        for path in sorted(package.rglob("*")):
-            if path.is_file():
-                output.write(path, path.relative_to(package).as_posix())
+    archive = _zip_package(package, tmp_path / "example.spatialpkg")
 
     result = validate_scene_package(archive)
 
@@ -250,6 +257,36 @@ def test_package_rejects_unreferenced_members(tmp_path):
         validate_scene_package(package)
 
 
+@pytest.mark.parametrize("container", ["directory", "zip"])
+def test_package_rejects_nonfinite_manifest_numbers(tmp_path, container):
+    package = _write_package(tmp_path / f"nonfinite-{container}")
+    manifest = _load_manifest(package)
+    manifest["zones"]["bass"]["keyframes"][0]["gain_db"] = float("nan")
+    _save_manifest(package, manifest)
+    source = package
+    if container == "zip":
+        source = _zip_package(package, tmp_path / "nonfinite.spatialpkg")
+
+    with pytest.raises(ScenePackageError, match="non-finite JSON constant"):
+        validate_scene_package(source)
+
+
+@pytest.mark.parametrize("container", ["directory", "zip"])
+def test_package_wraps_corrupt_audio_as_scene_package_error(tmp_path, container):
+    package = _write_package(tmp_path / f"corrupt-{container}")
+    bass = package / "audio" / "bass.wav"
+    bass.write_bytes(b"not a WAV file")
+    manifest = _load_manifest(package)
+    manifest["zones"]["bass"]["audio"]["sha256"] = hashlib.sha256(bass.read_bytes()).hexdigest()
+    _save_manifest(package, manifest)
+    source = package
+    if container == "zip":
+        source = _zip_package(package, tmp_path / "corrupt.spatialpkg")
+
+    with pytest.raises(ScenePackageError, match="unable to inspect audio asset"):
+        validate_scene_package(source)
+
+
 def test_directory_package_rejects_symlinked_audio(tmp_path):
     package = _write_package(tmp_path / "symlinked-audio")
     bass = package / "audio" / "bass.wav"
@@ -288,9 +325,54 @@ def test_zip_package_rejects_path_traversal_members(tmp_path):
         validate_scene_package(archive)
 
 
+def test_zip_package_rejects_unsafe_directory_members(tmp_path):
+    package = _write_package(tmp_path / "unpacked-unsafe-directory")
+    archive = _zip_package(package, tmp_path / "unsafe-directory.spatialpkg")
+    with zipfile.ZipFile(archive, "a") as output:
+        output.writestr("../", b"")
+
+    with pytest.raises(ScenePackageError, match="unsafe ZIP member"):
+        validate_scene_package(archive)
+
+
+def test_zip_package_rejects_symlink_directory_members(tmp_path):
+    package = _write_package(tmp_path / "unpacked-symlink-directory")
+    archive = _zip_package(package, tmp_path / "symlink-directory.spatialpkg")
+    link = zipfile.ZipInfo("audio/")
+    link.create_system = 3
+    link.external_attr = (stat.S_IFLNK | 0o777) << 16
+    with zipfile.ZipFile(archive, "a") as output:
+        output.writestr(link, b"audio")
+
+    with pytest.raises(ScenePackageError, match="unsafe ZIP member"):
+        validate_scene_package(archive)
+
+
 def test_documented_example_generator_creates_valid_directory_and_zip(tmp_path):
     package = build_example(tmp_path / "example")
     archive = write_zip(package, tmp_path / "example.spatialpkg")
 
     assert validate_scene_package(package).frame_count == 480
     assert validate_scene_package(archive).container == "zip"
+
+
+def test_documented_example_cli_runs_directly_from_repository_root(tmp_path):
+    repository = Path(__file__).resolve().parents[1]
+    output = tmp_path / "cli-example"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "examples/build_spatial_scene_package_example.py",
+            str(output),
+            "--zip",
+        ],
+        cwd=repository,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert validate_scene_package(output).container == "directory"
+    assert validate_scene_package(output.with_suffix(".spatialpkg")).container == "zip"
