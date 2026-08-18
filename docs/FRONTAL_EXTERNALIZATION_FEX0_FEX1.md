@@ -179,3 +179,9 @@ FEX-1 is not mature at export time. Maturity still requires two blind listening
 rounds with a stable cross-track conclusion and no important center-stability,
 clarity, timbre, double-image, or mono regression. Full-track rendering is not
 performed until excerpt screening selects survivors.
+
+The first screening bundle was generated from source revision `f0dc2884` with
+content hash `2749d3179db81e910a20be2d0c388cdc1dc9b4692bfad1c5ef1167f224e80247`.
+Its 24 level-matched trials differ by at most `0.00000001 LU` within each
+excerpt. This confirms evaluation-level equality only; it is not perceptual
+evidence for any condition.

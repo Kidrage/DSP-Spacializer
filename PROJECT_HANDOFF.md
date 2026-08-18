@@ -9,13 +9,13 @@
 - Working root: `.`
 - Repository name: `dsp-spatializer`
 - Git repository: `true`
-- Generated at: `2026-08-18T07:45:45.526344+00:00`
+- Generated at: `2026-08-18T09:43:58.582103+00:00`
 
 ## Current State
 
 - Branch: `feat/frontal-externalization-v1`
-- HEAD: `5de68a6`
-- Indexed paths: 136
+- HEAD: `f0dc288`
+- Indexed paths: 140
 - Inventory truncated: `false`
 - Inaccessible paths: 0
 - Scan mode: complete path/metadata inventory; no bulk content read; no symlink traversal.
@@ -43,11 +43,11 @@
 
 | Route | Files |
 |---|---:|
-| `.` | 48 |
-| `tests` | 28 |
-| `spatial_core` | 17 |
+| `.` | 49 |
+| `tests` | 29 |
+| `spatial_core` | 18 |
 | `docs` | 9 |
-| `config` | 6 |
+| `config` | 7 |
 | `web_ui` | 5 |
 | `.codex` | 4 |
 | `examples` | 4 |
@@ -64,16 +64,16 @@
 
 ### Categories
 
-- code: 86 files, 596246 bytes
-- literature: 30 files, 223154 bytes
+- code: 89 files, 628661 bytes
+- literature: 30 files, 227516 bytes
 - other: 5 files, 99136 bytes
-- structured_data: 15 files, 19385 bytes
+- structured_data: 16 files, 22079 bytes
 
 ### Common Extensions
 
-- `.py`: 85
+- `.py`: 88
 - `.md`: 27
-- `.json`: 11
+- `.json`: 12
 - `.yml`: 4
 - `.txt`: 3
 - `[no extension]`: 2
@@ -96,6 +96,8 @@
 
 ## Change History
 
+- `f0dc288 2026-08-18 feat: add frontal externalization fex1 screening`
+- `ea02c67 2026-08-18 docs: refresh fex0 handoff`
 - `5de68a6 2026-08-18 feat: establish frontal externalization fex0 baseline`
 - `ae192c5 2026-08-14 Merge pull request #10 from Kidrage/feat/spatial-scene-package-v01`
 - `92eef48 2026-08-14 docs: refresh validated scene package handoff`
@@ -114,12 +116,14 @@
 - `b094a4b 2026-08-11 fix: enforce Spatial Core promotion contracts`
 - `3b1d086 2026-08-11 docs: refresh Spatial Core V2.1 handoff`
 - `d03efea 2026-08-11 fix: address Spatial Core V2.1 review findings`
-- `8566d3f 2026-08-11 feat: add Spatial Core V2.1 clarity and depth`
-- `8e4041f 2026-08-11 Merge pull request #6 from Kidrage/fix/binaural-timbre-preservation`
 
 ## Current Changes
 
-- `## feat/frontal-externalization-v1...origin/main [ahead 1]`
+- `## feat/frontal-externalization-v1`
+- ` M .codex/repo_files.txt`
+- ` M .codex/source_index.txt`
+- ` M docs/FRONTAL_EXTERNALIZATION_FEX0_FEX1.md`
+- `?? config/frontal_externalization_fex1_evidence.json`
 
 ## Related Repositories
 
@@ -174,6 +178,7 @@
 - `.github/workflows/test.yml`
 - `config/frontal_externalization_corpus.json`
 - `config/frontal_externalization_fex0_evidence.json`
+- `config/frontal_externalization_fex1_evidence.json`
 - `config/listener_threshold_calibration.yml`
 - `config/quality_thresholds.yml`
 - `config/refine_thresholds.yml`
@@ -196,15 +201,17 @@
 ## Agent Notes
 
 <!-- AGENT_NOTES_START -->
-- 2026-08-18: branch `feat/frontal-externalization-v1` completes FEX-0 only.
-  FEX-1 remains behind stage acceptance; FEX-2/FEX-3/FEX-4 are explicitly
-  frozen. Legacy V3.2 and default Spatial Core V2/V2.1 listening behavior are
-  unchanged.
+- 2026-08-18: FEX-0 was accepted after the pinned stereo excerpts reproduced
+  the close/under-spatialized frontal voice without technical defects. FEX1-01
+  and FEX1-02 are now implemented and exported for blind excerpt screening;
+  FEX1-03 research maturity remains pending human ratings. FEX-2/FEX-3/FEX-4
+  remain explicitly frozen. Legacy V3.2 and default Spatial Core V2/V2.1
+  listening behavior are unchanged.
 - FEX-0 adds five strict opt-in controls, a path-safe three-track/four-excerpt
   corpus, a deterministic 28-case angle/distance matrix, and a standalone
   measured-SOFA baseline exporter. `distance_curve` is reserved for FEX-2 and
-  `level_matched_eval` is reserved for the future FEX-1 exporter; neither can be
-  silently rendered in FEX-0.
+  `level_matched_eval` is owned by the FEX-1 evaluation exporter and cannot be
+  silently rendered in FEX-0; `distance_curve` remains reserved for FEX-2.
 - The external baseline bundle contains 56 synthetic probes and four complete
   stereo excerpts. Its content hash is
   `7626a4e2af0aec35ce2c5f1e95fb013437d03aebbac5db063dbc0bb2e8db270a`;
@@ -213,6 +220,16 @@
   Validation: 185 pytest tests, targeted Ruff, `git diff --check`, 16 frozen
   V3.2 regression tests, and two-axis standards/spec review passed. No audio
   asset is committed and no perceptual improvement is claimed at FEX-0.
+- FEX-1 locks A-E to one changed control each and F to the required interaction,
+  then exports 24 blind condition/excerpt pairs as 48 Natural-Level and BS.1770
+  Level-Matched float WAV files. The external bundle content hash is
+  `2749d3179db81e910a20be2d0c388cdc1dc9b4692bfad1c5ef1167f224e80247`;
+  all artifact hashes passed, no absolute path was persisted, and the maximum
+  within-excerpt level-matched spread was `0.00000001 LU`.
+- FEX-1 validation: 191 pytest tests, targeted Ruff, `git diff --check`, 16
+  frozen V3.2 tests, 60/60 decoded FEX-0 audio payloads and diagnostics matching,
+  and two-axis review passed. No FEX-1 perceptual improvement is claimed until
+  blind ratings are complete.
 - 2026-08-14: branch `feat/spatial-scene-package-v01` documents the complete
   legacy/V2 production chain and parameter surface, then adds the strict
   `spatial_scene_package/0.1` JSON Schema, synthetic example generator, and a

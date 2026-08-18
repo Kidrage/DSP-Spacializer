@@ -1,0 +1,70 @@
+{
+  "format": "frontal_externalization_stage_evidence",
+  "version": "1.0",
+  "stage": "FEX-1",
+  "status": "excerpt_screening_ready",
+  "source_revision": "f0dc2884bab26a094b471fb30b683b9e42f53620",
+  "screening_bundle": {
+    "storage": "external",
+    "manifest_filename": "manifest.json",
+    "content_sha256": "2749d3179db81e910a20be2d0c388cdc1dc9b4692bfad1c5ef1167f224e80247",
+    "parameters_sha256": "34fad012a5403018b080a0b12cdca30bb7f82a90c3acd08858311bc0eade414d",
+    "sofa_sha256": "e7035994f5fd754058424c061380ee92b1d5ed58fccef2887a4266916616acdf",
+    "condition_excerpt_pairs": 24,
+    "natural_level_wav_files": 24,
+    "level_matched_wav_files": 24,
+    "diagnostics_files": 24,
+    "verified_artifact_hash_failures": 0,
+    "absolute_paths_persisted": false,
+    "blind_order_leakage_test": "passed"
+  },
+  "condition_parameters_sha256": {
+    "A": "4cf363a3c0b5eb47ef8e0f2605193c5e7b6bc3ae8c6354d3136c4ccf42e1c1cc",
+    "B": "49d6b8af47210e052bdcd4e3b0183fd19513674b05c29aca60c1ae24738e7c19",
+    "C": "c776eebc5f748f56a3ee5df7758316f1f2c58c9414f3865964850a43ec35ff3a",
+    "D": "447ee5a00eb16a47eab5cb3c66f44e7b85518680cb7a94b4580f7a5058804aa6",
+    "E": "d2b04dc39033ce4ce4b7453cd7f98de16b2dea0fa23caf16769a661e394c5220",
+    "F": "611521c5b955f41fe2642238cea54e0715b352f992238c2ddfe7ca4c2b2bc50a"
+  },
+  "loudness_evaluation": {
+    "method": "ITU-R BS.1770-4 integrated loudness",
+    "reference_condition": "A",
+    "maximum_within_excerpt_matched_spread_lu": 0.00000001,
+    "shared_headroom_gain_db_range": [
+      -1.08164806,
+      -0.28623023
+    ],
+    "maximum_matched_sample_peak": 0.98000002,
+    "natural_level_delta_lu_ranges": {
+      "A": [0.0, 0.0],
+      "B": [-1.08164785, -0.28457533],
+      "C": [-7.99999975, -6.55576493],
+      "D": [0.00466621, 0.02208758],
+      "E": [-0.03324394, 0.0854696],
+      "F": [-8.08789714, 2.24468381]
+    }
+  },
+  "compatibility": {
+    "legacy_v3_2_regression_tests_passed": 16,
+    "fex0_audio_payloads_identical": 60,
+    "fex0_diagnostics_identical": 60,
+    "fex0_raw_wav_hash_note": "The accepted libsndfile WAV files carry a wall-clock PEAK timestamp; decoded samples and diagnostics, rather than container byte hashes, were compared."
+  },
+  "verification": {
+    "full_pytest_passed": 191,
+    "full_pytest_failed": 0,
+    "targeted_ruff": "passed",
+    "standards_review": "passed",
+    "spec_review": "passed after blind-order and BS.1770 coefficient corrections"
+  },
+  "perceptual_status": {
+    "fex0_baseline_problem_confirmed": true,
+    "fex1_improvement_claim": "none; blind listening is pending",
+    "research_maturity": false
+  },
+  "frozen_stages": [
+    "FEX-2",
+    "FEX-3",
+    "FEX-4"
+  ]
+}

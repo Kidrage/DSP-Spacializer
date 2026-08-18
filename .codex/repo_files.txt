@@ -25,6 +25,7 @@ binaural_renderer.py
 config/calibration_evidence.md
 config/frontal_externalization_corpus.json
 config/frontal_externalization_fex0_evidence.json
+config/frontal_externalization_fex1_evidence.json
 config/listener_threshold_calibration.yml
 config/quality_thresholds.yml
 config/refine_thresholds.yml

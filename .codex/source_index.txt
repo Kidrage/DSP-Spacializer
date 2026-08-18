@@ -1,8 +1,8 @@
 # Source Index
 
 Repository: /Users/saintpeter/Desktop/Coding/spatializer_outputs/dsp-spatializer
-Tracked filtered files: 139
-High-value indexed files: 127
+Tracked filtered files: 140
+High-value indexed files: 128
 
 Read this file before broad repository exploration. Prefer focused `rg`
 or `git grep` against the listed areas before opening source files.
@@ -112,6 +112,7 @@ or `git grep` against the listed areas before opening source files.
 
 - config/frontal_externalization_corpus.json
 - config/frontal_externalization_fex0_evidence.json
+- config/frontal_externalization_fex1_evidence.json
 - config/listener_threshold_calibration.yml
 - config/quality_thresholds.yml
 - config/refine_thresholds.yml
