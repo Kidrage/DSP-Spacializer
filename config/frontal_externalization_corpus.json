@@ -1,0 +1,34 @@
+{
+  "format": "frontal_externalization_corpus",
+  "version": "1.0",
+  "tracks": [
+    {
+      "id": "male_reference",
+      "role": "independent_male_vocal_mix",
+      "relative_path": "孤勇者.mp3",
+      "sha256": "74b364d9d6b53b6594528a755e51dda073952ce8d4d51a232cb84970654302ef",
+      "excerpts": [
+        {"id": "male_center", "role": "male_vocal", "start_s": 90.0, "duration_s": 20.0}
+      ]
+    },
+    {
+      "id": "female_reference",
+      "role": "independent_female_vocal_mix",
+      "relative_path": "Chan Chan (Live Session).mp3",
+      "sha256": "d8366438553992d447ac631dec3643140ef1b4145ebd1d06c31977bf1869b590",
+      "excerpts": [
+        {"id": "female_center", "role": "female_vocal", "start_s": 145.0, "duration_s": 20.0}
+      ]
+    },
+    {
+      "id": "same_mix_sequence",
+      "role": "same_mix_sequential_vocals",
+      "relative_path": "Little Blue.mp3",
+      "sha256": "e98771a338742cf0ade708211a54011973befdeeb33df0dac35d69d67f4008d1",
+      "excerpts": [
+        {"id": "same_mix_male", "role": "male_vocal", "start_s": 30.0, "duration_s": 20.0},
+        {"id": "same_mix_female", "role": "female_vocal", "start_s": 160.0, "duration_s": 20.0}
+      ]
+    }
+  ]
+}

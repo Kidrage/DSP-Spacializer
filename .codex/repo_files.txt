@@ -7,6 +7,7 @@
 .gitignore
 AGENTS.md
 CLAUDE.md
+CONTEXT.md
 "DSP-Spacializer_auto_acoustic_\351\227\255\347\216\257\346\224\271\351\200\240\351\230\266\346\256\265\346\200\247\346\212\245\345\221\212.md"
 "DSP-Spacializer_\344\275\277\347\224\250\350\257\264\346\230\216\344\270\216\350\257\246\347\273\206\344\273\213\347\273\215.md"
 "DSP-Spacializer_\351\230\266\346\256\265\346\200\247\345\274\200\345\217\221\346\212\245\345\221\212.md"
@@ -22,6 +23,8 @@ auto_refine.py
 batch_spatial_diagnostics.py
 binaural_renderer.py
 config/calibration_evidence.md
+config/frontal_externalization_corpus.json
+config/frontal_externalization_fex0_evidence.json
 config/listener_threshold_calibration.yml
 config/quality_thresholds.yml
 config/refine_thresholds.yml
@@ -31,6 +34,7 @@ diagnostics.py
 docs/ARCHITECTURE_AND_SIGNAL_FLOW.md
 docs/BRANCH_STRATEGY.md
 docs/FEEDBACK_LOOP.md
+docs/FRONTAL_EXTERNALIZATION_FEX0_FEX1.md
 docs/PARAMETER_REFERENCE.md
 docs/REPOSITORY_STATUS.md
 docs/SEVEN_ZONE_MIXER.md
@@ -52,10 +56,12 @@ patch_export_switches_dryrir.py
 presets.py
 profiles/quad_4p0_feedback_example.json
 profiles/spatial_core_balanced_depth.json
+profiles/spatial_core_frontal_externalization_fex0.json
 profiles/spatial_mixer_universal_default.json
 renderer_4ch.py
 requirements.txt
 run_feedback_spatializer.py
+run_frontal_externalization_eval.py
 run_spatial_mixer.py
 run_spatializer.py
 scripts/check_text_integrity.py
@@ -69,6 +75,7 @@ spatial_core/binaural.py
 spatial_core/builder.py
 spatial_core/evaluation.py
 spatial_core/foa.py
+spatial_core/frontal_evaluation.py
 spatial_core/hrtf.py
 spatial_core/motion.py
 spatial_core/package.py
@@ -94,6 +101,7 @@ suggest_tuning_profile.py
 tests/conftest.py
 tests/test_batch_spatial_diagnostics.py
 tests/test_feedback_profile_suggester.py
+tests/test_frontal_externalization.py
 tests/test_gain_staging.py
 tests/test_rear_content_candidate.py
 tests/test_run_spatializer_cli.py

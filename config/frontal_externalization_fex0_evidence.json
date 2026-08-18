@@ -1,0 +1,34 @@
+{
+  "format": "frontal_externalization_stage_evidence",
+  "version": "1.0",
+  "stage": "FEX-0",
+  "source_revision": "ae192c54587ced71e02c5d9582d53290e7509852",
+  "baseline_bundle": {
+    "storage": "external",
+    "manifest_filename": "manifest.json",
+    "content_sha256": "7626a4e2af0aec35ce2c5f1e95fb013437d03aebbac5db063dbc0bb2e8db270a",
+    "parameters_sha256": "51ed7ba85407633015c524f57d7a1cfbe832f066599bdfa69df7071d9700975b",
+    "sofa_sha256": "e7035994f5fd754058424c061380ee92b1d5ed58fccef2887a4266916616acdf",
+    "artifacts": 60,
+    "synthetic_probes": 56,
+    "stereo_excerpts": 4,
+    "verified_artifact_hash_failures": 0,
+    "absolute_paths_persisted": false
+  },
+  "default_v2_compatibility": {
+    "comparison": "origin/main versus FEX-0 branch with identical synthetic stereo and measured SOFA",
+    "audio_sha256": "307a7e83ccdd7b97c5ab884ab6cdef531d19f9e3f291be13c368d6db826ce93e",
+    "scene_metadata_sha256": "ccd97b7a84ee8661ac080f015ae212d80b34105f2f6d2e0245ac24355937a06e",
+    "renderer_diagnostics_sha256": "d1876628d27f75e00c345df129d8a7f87b1696381b7f3911d1cc65dcb4b9cf8d"
+  },
+  "legacy_v3_2_compatibility": {
+    "changed_frozen_files": [],
+    "regression_tests_passed": 16
+  },
+  "verification": {
+    "full_pytest_passed": 185,
+    "full_pytest_failed": 0,
+    "targeted_ruff": "passed"
+  },
+  "perceptual_claim": "none; FEX-0 establishes evidence only"
+}

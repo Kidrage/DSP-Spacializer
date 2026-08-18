@@ -1,8 +1,8 @@
 # Source Index
 
 Repository: /Users/saintpeter/Desktop/Coding/spatializer_outputs/dsp-spatializer
-Tracked filtered files: 128
-High-value indexed files: 116
+Tracked filtered files: 136
+High-value indexed files: 124
 
 Read this file before broad repository exploration. Prefer focused `rg`
 or `git grep` against the listed areas before opening source files.
@@ -10,6 +10,7 @@ or `git grep` against the listed areas before opening source files.
 ## first-read
 
 - AGENTS.md
+- CONTEXT.md
 - README.md
 - input_audio/README.md
 
@@ -33,6 +34,7 @@ or `git grep` against the listed areas before opening source files.
 - presets.py
 - renderer_4ch.py
 - run_feedback_spatializer.py
+- run_frontal_externalization_eval.py
 - run_spatial_mixer.py
 - run_spatializer.py
 - scripts/check_text_integrity.py
@@ -45,6 +47,7 @@ or `git grep` against the listed areas before opening source files.
 - spatial_core/builder.py
 - spatial_core/evaluation.py
 - spatial_core/foa.py
+- spatial_core/frontal_evaluation.py
 - spatial_core/hrtf.py
 - spatial_core/motion.py
 - spatial_core/package.py
@@ -76,6 +79,7 @@ or `git grep` against the listed areas before opening source files.
 - tests/conftest.py
 - tests/test_batch_spatial_diagnostics.py
 - tests/test_feedback_profile_suggester.py
+- tests/test_frontal_externalization.py
 - tests/test_gain_staging.py
 - tests/test_rear_content_candidate.py
 - tests/test_run_spatializer_cli.py
@@ -103,6 +107,8 @@ or `git grep` against the listed areas before opening source files.
 
 ## config
 
+- config/frontal_externalization_corpus.json
+- config/frontal_externalization_fex0_evidence.json
 - config/listener_threshold_calibration.yml
 - config/quality_thresholds.yml
 - config/refine_thresholds.yml
@@ -112,6 +118,7 @@ or `git grep` against the listed areas before opening source files.
 - examples/subjective_score_example.json
 - profiles/quad_4p0_feedback_example.json
 - profiles/spatial_core_balanced_depth.json
+- profiles/spatial_core_frontal_externalization_fex0.json
 - profiles/spatial_mixer_universal_default.json
 - schemas/spatial_scene_package-0.1.schema.json
 - spatial_quality_thresholds.json
@@ -130,6 +137,7 @@ or `git grep` against the listed areas before opening source files.
 - docs/ARCHITECTURE_AND_SIGNAL_FLOW.md
 - docs/BRANCH_STRATEGY.md
 - docs/FEEDBACK_LOOP.md
+- docs/FRONTAL_EXTERNALIZATION_FEX0_FEX1.md
 - docs/PARAMETER_REFERENCE.md
 - docs/REPOSITORY_STATUS.md
 - docs/SEVEN_ZONE_MIXER.md

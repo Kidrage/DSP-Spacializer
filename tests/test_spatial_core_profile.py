@@ -5,6 +5,16 @@ import pytest
 from spatial_core import SpatialCoreProfile, load_spatial_profile
 
 
+def test_spatial_profile_defaults_preserve_legacy_frontal_modes():
+    profile = SpatialCoreProfile()
+
+    assert profile.hrtf_compensation_mode == "legacy_front_common"
+    assert profile.mastered_loudness_mode == "legacy_input_rms"
+    assert profile.center_room_send_db == -3.0
+    assert profile.reflection_normalization_mode == "legacy_per_object"
+    assert profile.direct_ratio_mode == "manual"
+
+
 def test_spatial_profile_loads_compact_parameters(tmp_path):
     path = tmp_path / "balanced.json"
     path.write_text(
@@ -35,6 +45,34 @@ def test_spatial_profile_loads_compact_parameters(tmp_path):
     assert profile.front_distance_m == 1.8
     assert profile.front_width_deg == 42
     assert profile.late_rt60_s == 0.4
+
+
+def test_spatial_profile_loads_frontal_experiment_controls(tmp_path):
+    path = tmp_path / "frontal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "format": "spatial_core_profile",
+                "version": "1.0",
+                "parameters": {
+                    "hrtf_compensation_mode": "off",
+                    "mastered_loudness_mode": "fixed_scene_gain",
+                    "center_room_send_db": 0.0,
+                    "reflection_normalization_mode": "physical_path_gain",
+                    "direct_ratio_mode": "distance_curve",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    profile = load_spatial_profile(path)
+
+    assert profile.hrtf_compensation_mode == "off"
+    assert profile.mastered_loudness_mode == "fixed_scene_gain"
+    assert profile.center_room_send_db == 0.0
+    assert profile.reflection_normalization_mode == "physical_path_gain"
+    assert profile.direct_ratio_mode == "distance_curve"
 
 
 def test_spatial_profile_rejects_unknown_parameters(tmp_path):
@@ -97,6 +135,20 @@ def test_spatial_profile_constructor_rejects_boolean_values():
 @pytest.mark.parametrize(
     ("name", "value"),
     [
+        ("hrtf_compensation_mode", "minimum_phase"),
+        ("mastered_loudness_mode", "louder"),
+        ("reflection_normalization_mode", "unit_energy"),
+        ("direct_ratio_mode", "automatic"),
+    ],
+)
+def test_spatial_profile_rejects_unknown_frontal_modes(name, value):
+    with pytest.raises(ValueError, match=name):
+        SpatialCoreProfile(**{name: value})
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
         ("center_anchor", 1.1),
         ("front_distance_m", 0.4),
         ("front_width_deg", 80),
@@ -107,6 +159,7 @@ def test_spatial_profile_constructor_rejects_boolean_values():
         ("early_reflection_level_db", -9),
         ("late_reverb_level_db", -41),
         ("late_rt60_s", 1.3),
+        ("center_room_send_db", 6.1),
     ],
 )
 def test_spatial_profile_rejects_out_of_range_parameters(tmp_path, name, value):

@@ -44,6 +44,18 @@ def test_default_builder_creates_direct_objects_and_foa_bed():
         "rear_ambience",
         "high_air",
     ]
+    assert scene.metadata["profile"] == {
+        "center_anchor": 0.8,
+        "front_distance_m": 1.6,
+        "front_width_deg": 35.0,
+        "bed_width_gain": 0.25,
+        "bed_rear_gain": 0.18,
+        "bed_air_gain": 0.12,
+        "direct_ratio": 0.78,
+        "early_reflection_level_db": -21.0,
+        "late_reverb_level_db": -27.0,
+        "late_rt60_s": 0.35,
+    }
 
 
 def test_builder_applies_compact_front_spatial_parameters():
@@ -64,6 +76,36 @@ def test_builder_applies_compact_front_spatial_parameters():
     assert all(item.direct_ratio == 0.7 for item in scene.objects)
     assert all(item.gain_db == 0.0 for item in scene.objects)
     assert scene.metadata["mastered_reference_rms"] == pytest.approx(0.0)
+
+
+def test_builder_serializes_active_frontal_experiment_controls():
+    stereo = np.zeros((2_048, 2), dtype=np.float32)
+    profile = SpatialCoreProfile(
+        hrtf_compensation_mode="off",
+        mastered_loudness_mode="fixed_scene_gain",
+        center_room_send_db=0.0,
+        reflection_normalization_mode="physical_path_gain",
+    )
+
+    scene = build_scene(stereo, profile=profile, sample_rate=48_000)
+
+    assert scene.metadata["profile"] == {
+        "center_anchor": 0.8,
+        "front_distance_m": 1.6,
+        "front_width_deg": 35.0,
+        "bed_width_gain": 0.25,
+        "bed_rear_gain": 0.18,
+        "bed_air_gain": 0.12,
+        "direct_ratio": 0.78,
+        "early_reflection_level_db": -21.0,
+        "late_reverb_level_db": -27.0,
+        "late_rt60_s": 0.35,
+        "hrtf_compensation_mode": "off",
+        "mastered_loudness_mode": "fixed_scene_gain",
+        "center_room_send_db": 0.0,
+        "reflection_normalization_mode": "physical_path_gain",
+        "direct_ratio_mode": "manual",
+    }
 
 
 def test_builder_rejects_unknown_mapping_profile_parameters():

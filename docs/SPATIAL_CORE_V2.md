@@ -129,10 +129,22 @@ static clarity/depth candidate:
 | `early_reflection_level_db` | -21 | -40 to -10 |
 | `late_reverb_level_db` | -27 | -40 to -12 |
 | `late_rt60_s` | 0.35 | 0.15–1.20 |
+| `hrtf_compensation_mode` | `legacy_front_common` | `legacy_front_common`, `off` |
+| `mastered_loudness_mode` | `legacy_input_rms` | `legacy_input_rms`, `fixed_scene_gain`, `level_matched_eval` |
+| `center_room_send_db` | -3 | -12 to +6 |
+| `reflection_normalization_mode` | `legacy_per_object` | `legacy_per_object`, `physical_path_gain` |
+| `direct_ratio_mode` | `manual` | `manual`, `distance_curve` |
 
-Unknown top-level or parameter keys, non-numeric values, and out-of-range
-values fail before rendering. The example is
-`profiles/spatial_core_balanced_depth.json`.
+Unknown top-level or parameter keys, invalid mode names, non-numeric continuous
+values, and out-of-range values fail before rendering. These optional 1.0 fields
+are a backward-compatible extension: old profile files load and serialize as
+before. The legacy values above preserve the previous Spatial Core V2/V2.1
+output. The non-legacy controls are opt-in FEX experiments;
+`level_matched_eval` is reserved for the FEX-1 evaluation exporter and
+`distance_curve` is reserved for frozen FEX-2, so both fail at renderer
+construction in FEX-0. Examples are
+`profiles/spatial_core_balanced_depth.json` and
+`profiles/spatial_core_frontal_externalization_fex0.json`.
 
 ## Scene interchange
 

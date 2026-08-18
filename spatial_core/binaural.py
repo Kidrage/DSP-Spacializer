@@ -186,6 +186,15 @@ class SofaBinauralRenderer:
         self.room_profile = room_profile if room_enabled else "off"
         self.room_enabled = self.room_profile != "off"
         self.profile = profile or SpatialCoreProfile()
+        if self.profile.direct_ratio_mode != "manual":
+            raise ValueError(
+                "direct_ratio_mode=distance_curve is reserved for frozen FEX-2"
+            )
+        if self.profile.mastered_loudness_mode == "level_matched_eval":
+            raise ValueError(
+                "mastered_loudness_mode=level_matched_eval requires the FEX-1 "
+                "evaluation exporter"
+            )
         self.block_size = max(64, int(block_size))
         self._databases: dict[int, SofaHrirDatabase] = {}
 
@@ -273,10 +282,15 @@ class SofaBinauralRenderer:
                     )
                 balanced_room_send = _balanced_wet_gain(direct_ratio)
                 if item.role == "center":
-                    balanced_room_send *= 10.0 ** (-3.0 / 20.0)
-                reflection_norm = np.linalg.norm(
-                    [reflection.relative_gain for reflection in balanced_reflections]
-                )
+                    balanced_room_send *= 10.0 ** (
+                        self.profile.center_room_send_db / 20.0
+                    )
+                if self.profile.reflection_normalization_mode == "legacy_per_object":
+                    reflection_norm = np.linalg.norm(
+                        [reflection.relative_gain for reflection in balanced_reflections]
+                    )
+                else:
+                    reflection_norm = 1.0
             else:
                 reflection_norm = 1.0
             dry_gain = np.sqrt(max(0.0, 1.0 - item.diffusion))
@@ -375,10 +389,23 @@ class SofaBinauralRenderer:
             diffuse_foa[: scene.num_frames] += scene.bed.audio
         if np.any(diffuse_foa):
             self._render_foa(database, diffuse_foa, output, scene.sample_rate)
-        output = _apply_common_field_compensation(output, database.timbre_compensation_ir)
-        output, mastered_loudness_gain_db, mastered_loudness_peak_limited = (
-            _match_mastered_loudness(output, scene)
-        )
+        if self.profile.hrtf_compensation_mode == "legacy_front_common":
+            output = _apply_common_field_compensation(
+                output,
+                database.timbre_compensation_ir,
+            )
+        else:
+            output = np.pad(
+                output,
+                ((0, database.timbre_compensation_ir.size - 1), (0, 0)),
+            )
+        if self.profile.mastered_loudness_mode == "legacy_input_rms":
+            output, mastered_loudness_gain_db, mastered_loudness_peak_limited = (
+                _match_mastered_loudness(output, scene)
+            )
+        else:
+            mastered_loudness_gain_db = 0.0
+            mastered_loudness_peak_limited = False
         limited, limiter_report = linked_peak_limiter(output, scene.sample_rate)
         limiter_gain = 10.0 ** (-float(limiter_report["max_gain_reduction_db"]) / 20.0)
         if self.room_profile == "balanced-depth":
@@ -395,7 +422,7 @@ class SofaBinauralRenderer:
                 "late_start_s": late_start_s,
                 "late_highpass_hz": 180.0,
                 "late_lowpass_hz": 8_000.0,
-                "center_room_send_db": -3.0,
+                "center_room_send_db": self.profile.center_room_send_db,
                 "reference_direct_ratio": BALANCED_REFERENCE_DIRECT_RATIO,
             }
         elif self.room_enabled:
@@ -408,6 +435,13 @@ class SofaBinauralRenderer:
             }
         else:
             room_diagnostics = None
+        if (
+            room_diagnostics is not None
+            and self.profile.reflection_normalization_mode != "legacy_per_object"
+        ):
+            room_diagnostics["reflection_normalization_mode"] = (
+                self.profile.reflection_normalization_mode
+            )
         diagnostics: dict[str, object] = {
             "engine": "spatial-v2-sofa",
             "sofa": str(database.path),
@@ -418,8 +452,16 @@ class SofaBinauralRenderer:
             "room_profile": room_diagnostics,
             "max_sofa_coverage_error_deg": max_coverage_error,
             "sofa_front_reference_gain": database.front_reference_gain,
-            "hrtf_timbre_compensation": "front-common-field",
-            "hrtf_compensation_phase": "minimum",
+            "hrtf_timbre_compensation": (
+                "front-common-field"
+                if self.profile.hrtf_compensation_mode == "legacy_front_common"
+                else "off"
+            ),
+            "hrtf_compensation_phase": (
+                "minimum"
+                if self.profile.hrtf_compensation_mode == "legacy_front_common"
+                else "disabled"
+            ),
             "hrtf_compensation_max_boost_db": database.timbre_compensation_max_boost_db,
             "hrtf_compensation_max_cut_db": database.timbre_compensation_max_cut_db,
             "mastered_loudness_gain_db": mastered_loudness_gain_db,
@@ -428,4 +470,6 @@ class SofaBinauralRenderer:
             "limiter": limiter_report,
             "foa_convention": "AmbiX ACN/SN3D (W,Y,Z,X)",
         }
+        if self.profile.mastered_loudness_mode != "legacy_input_rms":
+            diagnostics["mastered_loudness_mode"] = self.profile.mastered_loudness_mode
         return RenderResult(limited, scene.sample_rate, diagnostics)

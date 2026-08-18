@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import asdict, fields
+from dataclasses import fields
 
 import numpy as np
 
 from .foa import encode_mono_foa
-from .profile import SpatialCoreProfile
+from .profile import SpatialCoreProfile, profile_scene_parameters
 from .scene import FoaBed, SpatialObject, SpatialScene
 from .zones import extract_spatial_zones
 
@@ -81,7 +81,7 @@ def build_scene(
         "source": "dsp_bus_builder",
         "builder_version": "2.1",
         "zones": list(zones.names),
-        "profile": asdict(settings),
+        "profile": profile_scene_parameters(settings),
         "mastered_reference_rms": float(
             np.sqrt(np.mean(audio.astype(np.float64) ** 2))
         ),

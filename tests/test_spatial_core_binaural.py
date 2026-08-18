@@ -184,6 +184,28 @@ def test_binaural_renderer_removes_common_hrtf_timbre_coloration(tmp_path):
     assert result.diagnostics["hrtf_timbre_compensation"] == "front-common-field"
 
 
+def test_binaural_renderer_can_disable_front_common_field_compensation(tmp_path):
+    _write_colored_test_sofa(tmp_path / "colored.sofa")
+    signal = np.zeros(4_096, dtype=np.float32)
+    signal[512] = 0.05
+    scene = SpatialScene(48_000, [SpatialObject("reference", "front", signal)])
+
+    legacy = SofaBinauralRenderer(
+        tmp_path / "colored.sofa",
+        room_enabled=False,
+    ).render(scene)
+    uncompensated = SofaBinauralRenderer(
+        tmp_path / "colored.sofa",
+        room_enabled=False,
+        profile=SpatialCoreProfile(hrtf_compensation_mode="off"),
+    ).render(scene)
+
+    assert uncompensated.audio.shape == legacy.audio.shape
+    assert not np.allclose(uncompensated.audio, legacy.audio)
+    assert uncompensated.diagnostics["hrtf_timbre_compensation"] == "off"
+    assert uncompensated.diagnostics["hrtf_compensation_phase"] == "disabled"
+
+
 def test_common_field_compensation_preserves_interaural_cues(tmp_path):
     _write_colored_test_sofa(tmp_path / "test.sofa")
     signal = np.zeros(4_096, dtype=np.float32)
@@ -250,6 +272,26 @@ def test_distance_model_reduces_far_direct_sound(tmp_path):
     )
 
     assert np.linalg.norm(far.audio) < np.linalg.norm(near.audio) * 0.4
+
+
+def test_distance_curve_direct_ratio_remains_frozen_after_fex0(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+
+    with pytest.raises(ValueError, match="reserved for frozen FEX-2"):
+        SofaBinauralRenderer(
+            tmp_path / "test.sofa",
+            profile=SpatialCoreProfile(direct_ratio_mode="distance_curve"),
+        )
+
+
+def test_level_matched_eval_remains_owned_by_the_fex1_exporter(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+
+    with pytest.raises(ValueError, match="requires the FEX-1 evaluation exporter"):
+        SofaBinauralRenderer(
+            tmp_path / "test.sofa",
+            profile=SpatialCoreProfile(mastered_loudness_mode="level_matched_eval"),
+        )
 
 
 def test_room_renderer_preserves_late_tail(tmp_path):
@@ -327,6 +369,43 @@ def test_balanced_depth_reduces_center_room_send_by_three_db(tmp_path):
     )
 
 
+def test_balanced_depth_center_room_send_trim_is_configurable(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    signal = np.zeros(1_024, dtype=np.float32)
+    signal[128] = 0.005
+    profile = SpatialCoreProfile(center_room_send_db=0.0)
+
+    def room_residual(role):
+        scene = SpatialScene(
+            48_000,
+            [SpatialObject("lead", role, signal, 0, 0, 1.6, direct_ratio=profile.direct_ratio)],
+        )
+        wet = SofaBinauralRenderer(
+            tmp_path / "test.sofa",
+            room_profile="balanced-depth",
+            profile=profile,
+        ).render(scene).audio
+        direct_gain_db = 20.0 * np.log10(np.sqrt(profile.direct_ratio))
+        dry_scene = SpatialScene(
+            48_000,
+            [SpatialObject("lead", role, signal, 0, 0, 1.6, gain_db=direct_gain_db)],
+        )
+        dry = SofaBinauralRenderer(tmp_path / "test.sofa", room_enabled=False).render(
+            dry_scene
+        ).audio
+        dry = np.pad(dry, ((0, wet.shape[0] - dry.shape[0]), (0, 0)))
+        return wet - dry
+
+    with pytest.warns(RuntimeWarning):
+        center_room = room_residual("center")
+    with pytest.warns(RuntimeWarning):
+        front_room = room_residual("front")
+
+    assert np.linalg.norm(center_room) / np.linalg.norm(front_room) == pytest.approx(
+        1.0, rel=0.02
+    )
+
+
 def test_balanced_depth_direct_ratio_controls_wet_send(tmp_path):
     _write_test_sofa(tmp_path / "test.sofa")
     signal = np.zeros(1024, dtype=np.float32)
@@ -360,6 +439,37 @@ def test_balanced_depth_direct_ratio_controls_wet_send(tmp_path):
 
     assert np.linalg.norm(wetter) / np.linalg.norm(drier) == pytest.approx(
         np.sqrt((1.0 - 0.5) / (1.0 - 0.9)), rel=0.03
+    )
+
+
+def test_balanced_depth_can_preserve_physical_reflection_path_gain(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    signal = np.zeros(1_024, dtype=np.float32)
+    signal[128] = 0.005
+    scene = SpatialScene(
+        48_000,
+        [SpatialObject("lead", "front", signal, 0, 0, 1.6, direct_ratio=0.78)],
+    )
+
+    with pytest.warns(RuntimeWarning):
+        legacy = SofaBinauralRenderer(
+            tmp_path / "test.sofa",
+            room_profile="balanced-depth",
+            profile=SpatialCoreProfile(),
+        ).render(scene)
+    with pytest.warns(RuntimeWarning):
+        physical = SofaBinauralRenderer(
+            tmp_path / "test.sofa",
+            room_profile="balanced-depth",
+            profile=SpatialCoreProfile(
+                reflection_normalization_mode="physical_path_gain"
+            ),
+        ).render(scene)
+
+    assert not np.allclose(physical.audio, legacy.audio)
+    assert (
+        physical.diagnostics["room_profile"]["reflection_normalization_mode"]
+        == "physical_path_gain"
     )
 
 
@@ -409,6 +519,37 @@ def test_builder_scene_matches_mastered_input_rms_before_limiter(tmp_path):
     )
     assert output_rms == pytest.approx(source_rms, rel=0.01)
     assert abs(result.diagnostics["mastered_loudness_gain_db"]) > 0.1
+
+
+def test_fixed_scene_gain_skips_render_time_input_rms_restoration(tmp_path):
+    _write_test_sofa(tmp_path / "test.sofa")
+    sample_rate = 48_000
+    time = np.arange(8_192, dtype=np.float64) / sample_rate
+    stereo = np.stack(
+        [
+            0.015 * np.sin(2.0 * np.pi * 220.0 * time),
+            0.012 * np.sin(2.0 * np.pi * 330.0 * time),
+        ],
+        axis=1,
+    ).astype(np.float32)
+    profile = SpatialCoreProfile(mastered_loudness_mode="fixed_scene_gain")
+    scene = build_scene(stereo, profile=profile, sample_rate=sample_rate)
+
+    result = SofaBinauralRenderer(
+        tmp_path / "test.sofa",
+        room_profile="off",
+        room_enabled=False,
+        profile=profile,
+        block_size=8_192,
+    ).render(scene)
+
+    source_rms = np.sqrt(np.mean(stereo.astype(np.float64) ** 2))
+    output_rms = np.sqrt(
+        np.mean(result.audio[: stereo.shape[0]].astype(np.float64) ** 2)
+    )
+    assert output_rms != pytest.approx(source_rms, rel=0.01)
+    assert result.diagnostics["mastered_loudness_gain_db"] == 0.0
+    assert result.diagnostics["mastered_loudness_mode"] == "fixed_scene_gain"
 
 
 def test_mastered_loudness_match_preserves_peak_headroom():
