@@ -15,6 +15,7 @@ import soundfile as sf
 
 from .binaural import SofaBinauralRenderer
 from .builder import build_scene
+from .loudness import level_match_group_bs1770
 from .profile import SpatialCoreProfile
 from .scene import SpatialObject, SpatialScene
 
@@ -61,6 +62,56 @@ class EvaluationTrack:
 @dataclass(frozen=True)
 class FrontalCorpus:
     tracks: tuple[EvaluationTrack, ...]
+
+
+@dataclass(frozen=True)
+class Fex1Condition:
+    id: str
+    changed_controls: tuple[str, ...]
+    profile: SpatialCoreProfile
+
+
+def fex1_conditions() -> tuple[Fex1Condition, ...]:
+    """Return the locked FEX-1 causal conditions in listening order."""
+
+    return (
+        Fex1Condition("A", (), SpatialCoreProfile()),
+        Fex1Condition(
+            "B",
+            ("hrtf_compensation_mode",),
+            SpatialCoreProfile(hrtf_compensation_mode="off"),
+        ),
+        Fex1Condition(
+            "C",
+            ("mastered_loudness_mode",),
+            SpatialCoreProfile(mastered_loudness_mode="fixed_scene_gain"),
+        ),
+        Fex1Condition(
+            "D",
+            ("center_room_send_db",),
+            SpatialCoreProfile(center_room_send_db=0.0),
+        ),
+        Fex1Condition(
+            "E",
+            ("reflection_normalization_mode",),
+            SpatialCoreProfile(reflection_normalization_mode="physical_path_gain"),
+        ),
+        Fex1Condition(
+            "F",
+            (
+                "hrtf_compensation_mode",
+                "mastered_loudness_mode",
+                "center_room_send_db",
+                "reflection_normalization_mode",
+            ),
+            SpatialCoreProfile(
+                hrtf_compensation_mode="off",
+                mastered_loudness_mode="fixed_scene_gain",
+                center_room_send_db=0.0,
+                reflection_normalization_mode="physical_path_gain",
+            ),
+        ),
+    )
 
 
 def _number_token(value: float) -> str:
@@ -216,6 +267,36 @@ def _write_json(path: Path, payload: object) -> str:
         encoding="utf-8",
     )
     return _file_sha256(path)
+
+
+def _write_deterministic_float_wav(
+    path: Path,
+    audio: np.ndarray,
+    sample_rate: int,
+) -> None:
+    """Write float WAV while clearing libsndfile's wall-clock PEAK timestamp."""
+
+    sf.write(path, audio, sample_rate, subtype="FLOAT")
+    with path.open("r+b") as stream:
+        if stream.read(12)[:4] != b"RIFF":
+            raise ValueError("expected a RIFF WAV output")
+        while True:
+            header = stream.read(8)
+            if not header:
+                break
+            if len(header) != 8:
+                raise ValueError("truncated WAV chunk header")
+            chunk_id = header[:4]
+            chunk_size = int.from_bytes(header[4:], "little")
+            payload_offset = stream.tell()
+            if chunk_id == b"PEAK":
+                if chunk_size < 8:
+                    raise ValueError("invalid WAV PEAK chunk")
+                stream.seek(payload_offset + 4)
+                stream.write(b"\0\0\0\0")
+                return
+            stream.seek(payload_offset + chunk_size + (chunk_size & 1))
+    raise ValueError("float WAV output is missing its PEAK chunk")
 
 
 def _resolve_track_path(root: Path, track: EvaluationTrack) -> Path:
@@ -472,6 +553,290 @@ def render_fex0_baseline(
             "azimuths_deg": list(FRONTAL_AZIMUTHS_DEG),
             "distances_m": list(FRONTAL_DISTANCES_M),
         },
+        "artifacts": artifacts,
+    }
+    manifest["content_sha256"] = sha256(_canonical_bytes(manifest)).hexdigest()
+    manifest_path = destination / "manifest.json"
+    _write_json(manifest_path, manifest)
+    return manifest_path
+
+
+def render_fex1_screening(
+    *,
+    corpus: FrontalCorpus,
+    library_root: str | Path,
+    sofa_path: str | Path,
+    output_dir: str | Path,
+    source_revision: str,
+    sample_rate: int = 48_000,
+    peak_ceiling: float = 0.98,
+) -> Path:
+    """Render the locked FEX-1 excerpt matrix and return its manifest."""
+
+    revision = source_revision.strip() if isinstance(source_revision, str) else ""
+    if _SOURCE_REVISION_PATTERN.fullmatch(revision) is None:
+        raise ValueError("source_revision must be a path-free revision identifier")
+    if isinstance(sample_rate, bool) or not isinstance(sample_rate, int) or sample_rate < 8_000:
+        raise ValueError("sample_rate must be an integer of at least 8000")
+    if (
+        isinstance(peak_ceiling, bool)
+        or not isinstance(peak_ceiling, (int, float))
+        or not 0.0 < float(peak_ceiling) <= 1.0
+    ):
+        raise ValueError("peak_ceiling must be within (0, 1]")
+    root = Path(library_root).expanduser().resolve(strict=True)
+    if not root.is_dir():
+        raise ValueError("library_root must be a directory")
+    measured_sofa = Path(sofa_path).expanduser().resolve(strict=True)
+    if not measured_sofa.is_file():
+        raise ValueError("sofa_path must be a file")
+    destination = Path(output_dir).expanduser().resolve()
+    if destination.exists() and any(destination.iterdir()):
+        raise ValueError("output_dir must be absent or empty")
+    diagnostics_dir = destination / "diagnostics"
+    diagnostics_dir.mkdir(parents=True, exist_ok=True)
+
+    sofa_digest = _file_sha256(measured_sofa)
+    conditions = fex1_conditions()
+    blind_order = sorted(
+        conditions,
+        key=lambda condition: sha256(
+            f"{revision}:{sofa_digest}:{condition.id}".encode("utf-8")
+        ).hexdigest(),
+    )
+    blind_for_condition = {
+        condition.id: f"sample_{index:02d}"
+        for index, condition in enumerate(blind_order, start=1)
+    }
+    condition_payloads = []
+    condition_hashes: dict[str, str] = {}
+    for condition in conditions:
+        parameters = asdict(condition.profile)
+        parameters_digest = sha256(_canonical_bytes(parameters)).hexdigest()
+        condition_hashes[condition.id] = parameters_digest
+        condition_payloads.append(
+            {
+                "id": condition.id,
+                "changed_controls": list(condition.changed_controls),
+                "profile": parameters,
+                "parameters_sha256": parameters_digest,
+            }
+        )
+    renderers = {
+        condition.id: SofaBinauralRenderer(
+            measured_sofa,
+            room_profile="balanced-depth",
+            profile=condition.profile,
+            block_size=8_192,
+        )
+        for condition in conditions
+    }
+    artifacts: list[dict[str, object]] = []
+
+    for track in corpus.tracks:
+        track_path = _resolve_track_path(root, track)
+        for excerpt in track.excerpts:
+            excerpt_key = f"{track.id}_{excerpt.id}"
+            stereo = _read_excerpt(track_path, excerpt, sample_rate)
+            natural_audio: dict[str, np.ndarray] = {}
+            renderer_diagnostics: dict[str, dict[str, object]] = {}
+            for condition in conditions:
+                result = renderers[condition.id].render(
+                    build_scene(stereo, profile=condition.profile, sample_rate=sample_rate)
+                )
+                natural_audio[condition.id] = result.audio
+                renderer_diagnostics[condition.id] = _safe_diagnostics(
+                    result.diagnostics,
+                    sofa_name=measured_sofa.name,
+                    sofa_sha256=sofa_digest,
+                    audio=result.audio,
+                )
+
+            matched_group = level_match_group_bs1770(
+                natural_audio,
+                sample_rate,
+                reference_key="A",
+                peak_ceiling=float(peak_ceiling),
+            )
+            for condition in conditions:
+                blind_label = blind_for_condition[condition.id]
+                artifact_id = f"excerpt_{excerpt_key}_{blind_label}"
+                natural_relative = (
+                    Path("audio") / "natural_level" / excerpt_key / f"{blind_label}.wav"
+                )
+                matched_relative = (
+                    Path("audio") / "level_matched" / excerpt_key / f"{blind_label}.wav"
+                )
+                diagnostics_relative = Path("diagnostics") / f"{artifact_id}.json"
+                natural_path = destination / natural_relative
+                matched_path = destination / matched_relative
+                diagnostics_path = destination / diagnostics_relative
+                natural_path.parent.mkdir(parents=True, exist_ok=True)
+                matched_path.parent.mkdir(parents=True, exist_ok=True)
+                matched_signal = matched_group.signals[condition.id]
+                _write_deterministic_float_wav(
+                    natural_path,
+                    natural_audio[condition.id],
+                    sample_rate,
+                )
+                _write_deterministic_float_wav(
+                    matched_path,
+                    matched_signal.audio,
+                    sample_rate,
+                )
+
+                natural_peak = float(np.max(np.abs(natural_audio[condition.id])))
+                evaluation = {
+                    "method": "ITU-R BS.1770-4 integrated loudness",
+                    "reference_condition": "A",
+                    "reference_loudness_lkfs": matched_group.reference_loudness_lkfs,
+                    "final_target_loudness_lkfs": matched_group.final_target_loudness_lkfs,
+                    "shared_headroom_gain_db": matched_group.shared_headroom_gain_db,
+                    "peak_ceiling": float(peak_ceiling),
+                    "natural_loudness_lkfs": matched_signal.natural_loudness_lkfs,
+                    "matched_loudness_lkfs": matched_signal.matched_loudness_lkfs,
+                    "applied_gain_db": matched_signal.applied_gain_db,
+                }
+                diagnostics = dict(renderer_diagnostics[condition.id])
+                diagnostics["level_matched_evaluation"] = evaluation
+                diagnostics_digest = _write_json(diagnostics_path, diagnostics)
+                artifacts.append(
+                    {
+                        "id": artifact_id,
+                        "blind_label": blind_label,
+                        "source": {
+                            "kind": "stereo_excerpt",
+                            "track_id": track.id,
+                            "track_role": track.role,
+                            "relative_path": track.relative_path,
+                            "source_sha256": track.sha256,
+                            "excerpt_id": excerpt.id,
+                            "excerpt_role": excerpt.role,
+                            "start_s": excerpt.start_s,
+                            "duration_s": excerpt.duration_s,
+                        },
+                        "natural_level": {
+                            "audio_file": natural_relative.as_posix(),
+                            "audio_sha256": _file_sha256(natural_path),
+                            "integrated_loudness_lkfs": (
+                                matched_signal.natural_loudness_lkfs
+                            ),
+                            "sample_peak": natural_peak,
+                            "render_gain_staging": asdict(condition.profile)[
+                                "mastered_loudness_mode"
+                            ],
+                        },
+                        "level_matched": {
+                            "audio_file": matched_relative.as_posix(),
+                            "audio_sha256": _file_sha256(matched_path),
+                            "integrated_loudness_lkfs": (
+                                matched_signal.matched_loudness_lkfs
+                            ),
+                            "applied_gain_db": matched_signal.applied_gain_db,
+                            "shared_headroom_gain_db": (
+                                matched_group.shared_headroom_gain_db
+                            ),
+                            "sample_peak": matched_signal.sample_peak,
+                        },
+                        "diagnostics_file": diagnostics_relative.as_posix(),
+                        "diagnostics_sha256": diagnostics_digest,
+                    }
+                )
+
+    def artifact_order(item: dict[str, object]) -> tuple[str, str, str]:
+        source = item["source"]
+        assert isinstance(source, dict)
+        return (
+            str(source["track_id"]),
+            str(source["excerpt_id"]),
+            str(item["blind_label"]),
+        )
+
+    artifacts.sort(key=artifact_order)
+    answer_key = {
+        "format": "frontal_externalization_answer_key",
+        "version": "1.0",
+        "stage": "FEX-1",
+        "blind_to_condition": {
+            blind_for_condition[condition.id]: condition.id for condition in conditions
+        },
+        "condition_parameters_sha256": condition_hashes,
+    }
+    answer_key_path = destination / "answer_key.json"
+    answer_key_digest = _write_json(answer_key_path, answer_key)
+    listening_dimensions = [
+        "externalization",
+        "perceived_distance",
+        "center_stability",
+        "vocal_clarity",
+        "timbre_naturalness",
+        "double_image",
+        "overall_preference",
+    ]
+
+    def listening_trials(variant: str) -> list[dict[str, object]]:
+        trials = []
+        for artifact in sorted(
+            artifacts,
+            key=lambda item: (
+                str(item["source"]["track_id"]),  # type: ignore[index]
+                str(item["source"]["excerpt_id"]),  # type: ignore[index]
+                str(item["blind_label"]),
+            ),
+        ):
+            source = artifact["source"]
+            assert isinstance(source, dict)
+            variant_payload = artifact[variant]
+            assert isinstance(variant_payload, dict)
+            trials.append(
+                {
+                    "trial_id": f"{artifact['id']}_{variant}",
+                    "track_id": source["track_id"],
+                    "excerpt_id": source["excerpt_id"],
+                    "blind_label": artifact["blind_label"],
+                    "audio_file": variant_payload["audio_file"],
+                    "ratings": {name: None for name in listening_dimensions},
+                    "notes": "",
+                }
+            )
+        return trials
+
+    listening_form = {
+        "format": "frontal_externalization_listening_form",
+        "version": "1.0",
+        "stage": "FEX-1",
+        "rating_scale": {"minimum": 1, "maximum": 7},
+        "dimensions": listening_dimensions,
+        "dimension_guidance": {
+            "double_image": "1 = none/stable single image; 7 = severe duplicate image",
+            "other_dimensions": "1 = poor/low; 7 = excellent/high",
+        },
+        "primary_level_matched_trials": listening_trials("level_matched"),
+        "natural_level_confound_trials": listening_trials("natural_level"),
+    }
+    listening_form_path = destination / "listening_form.json"
+    listening_form_digest = _write_json(listening_form_path, listening_form)
+    parameters = {
+        "conditions": condition_payloads,
+        "room_profile": "balanced-depth",
+        "sample_rate": sample_rate,
+        "loudness_method": "ITU-R BS.1770-4 integrated loudness",
+        "level_match_reference": "A",
+        "peak_ceiling": float(peak_ceiling),
+    }
+    manifest: dict[str, object] = {
+        "format": "frontal_externalization_screening",
+        "version": "1.0",
+        "stage": "FEX-1",
+        "source_revision": revision,
+        "parameters": parameters,
+        "parameters_sha256": sha256(_canonical_bytes(parameters)).hexdigest(),
+        "conditions": condition_payloads,
+        "sofa": {"filename": measured_sofa.name, "sha256": sofa_digest},
+        "answer_key_file": answer_key_path.name,
+        "answer_key_sha256": answer_key_digest,
+        "listening_form_file": listening_form_path.name,
+        "listening_form_sha256": listening_form_digest,
         "artifacts": artifacts,
     }
     manifest["content_sha256"] = sha256(_canonical_bytes(manifest)).hexdigest()

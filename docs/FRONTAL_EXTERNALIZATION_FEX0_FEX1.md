@@ -102,6 +102,11 @@ The existing RMS stage remains unchanged in legacy mode and is itself factor C.
 - Produce the external baseline bundle and reproducible command.
 - Stop for stage acceptance before FEX-1.
 
+Accepted on 2026-08-18: all four stereo excerpts were suitable, the frontal
+voice remained reproducibly close/under-spatialized, and no click, dropout,
+channel reversal, clipping, or abnormal level was reported. This is confirmation
+of the baseline problem, not evidence of an externalization improvement.
+
 Reproduce the FEX-0 bundle without placing local roots in its manifest:
 
 ```bash
@@ -123,10 +128,18 @@ the B–F perceptual conditions.
   timbre naturalness, double-image, and overall preference.
 - Reject conditions with meaningful utility regressions.
 
+Implemented as the fixed `render_fex1_screening` interface and the standalone
+`run_frontal_externalization_fex1.py` adapter. The condition profiles are owned
+by the exporter and cannot be replaced by a caller-provided profile. This keeps
+A–E causal and prevents accidental tuning drift.
+
 ### FEX1-02 — Interaction screening
 
 - Render required F and an accepted-factor-only combination if those differ.
 - Treat louder, darker, or wider-only changes as confounds, not success.
+
+F is exported together with A–E but remains an interaction diagnostic. It is not
+eligible for maturity merely because it differs more strongly from A.
 
 ### FEX1-03 — Research maturity
 
@@ -142,3 +155,27 @@ the B–F perceptual conditions.
 - Whether FEX-1 reaches research maturity.
 
 No FEX-2/FEX-3/FEX-4 design decision is open during this workstream.
+
+## Reproduce FEX-1 excerpt screening
+
+```bash
+python run_frontal_externalization_fex1.py \
+  --library-root /path/to/audio-library \
+  --sofa /path/to/measured-listener.sofa \
+  --output-dir /path/to/new-or-empty/fex1-screening \
+  --source-revision <git-commit>
+```
+
+The bundle contains 24 blind condition/excerpt pairs and 48 float WAV files:
+one Natural-Level Render and one Level-Matched Evaluation Render per pair.
+`manifest.json` records parameters, hashes, natural/matched BS.1770 loudness,
+applied gain, sample peak, and any shared headroom attenuation. `answer_key.json`
+must stay closed until ratings are complete. `listening_form.json` contains the
+seven required rating dimensions; level-matched trials are primary and natural-
+level trials are only a loudness-confound check. Do not inspect `diagnostics/`
+before rating because renderer fields can reveal the hidden condition.
+
+FEX-1 is not mature at export time. Maturity still requires two blind listening
+rounds with a stable cross-track conclusion and no important center-stability,
+clarity, timbre, double-image, or mono regression. Full-track rendering is not
+performed until excerpt screening selects survivors.

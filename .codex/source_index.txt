@@ -1,8 +1,8 @@
 # Source Index
 
 Repository: /Users/saintpeter/Desktop/Coding/spatializer_outputs/dsp-spatializer
-Tracked filtered files: 136
-High-value indexed files: 124
+Tracked filtered files: 139
+High-value indexed files: 127
 
 Read this file before broad repository exploration. Prefer focused `rg`
 or `git grep` against the listed areas before opening source files.
@@ -35,6 +35,7 @@ or `git grep` against the listed areas before opening source files.
 - renderer_4ch.py
 - run_feedback_spatializer.py
 - run_frontal_externalization_eval.py
+- run_frontal_externalization_fex1.py
 - run_spatial_mixer.py
 - run_spatializer.py
 - scripts/check_text_integrity.py
@@ -48,6 +49,7 @@ or `git grep` against the listed areas before opening source files.
 - spatial_core/evaluation.py
 - spatial_core/foa.py
 - spatial_core/frontal_evaluation.py
+- spatial_core/loudness.py
 - spatial_core/hrtf.py
 - spatial_core/motion.py
 - spatial_core/package.py
@@ -80,6 +82,7 @@ or `git grep` against the listed areas before opening source files.
 - tests/test_batch_spatial_diagnostics.py
 - tests/test_feedback_profile_suggester.py
 - tests/test_frontal_externalization.py
+- tests/test_spatial_core_loudness.py
 - tests/test_gain_staging.py
 - tests/test_rear_content_candidate.py
 - tests/test_run_spatializer_cli.py

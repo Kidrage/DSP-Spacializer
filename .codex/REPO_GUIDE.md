@@ -22,6 +22,9 @@ Deterministic, non-AI spatializer with a frozen legacy stereo-to-fixed-4.0/binau
 - `auto_refine.py`, `threshold_calibrator.py`, `config/`: deterministic refinement and calibration.
 - `tests/test_v32_candidate.py`: focused V3.2 regression contract.
 - `spatial_core/`: V2 scene interchange, lossless seven-zone M/S builder, compact profile, geometry room, SOFA binaural, listener motion, quad VBAP, and CTC adapter.
+- `run_frontal_externalization_eval.py` and `run_frontal_externalization_fex1.py`:
+  path-safe FEX-0 baseline and fixed A–F FEX-1 screening exporters. FEX-1 uses
+  evaluation-only BS.1770 matching and never writes its gain back to the renderer.
 - `docs/SPATIAL_CORE_V2.md`: V2 contracts, formats, CLI, and promotion gate.
 - `spatial_mixer/`: strict universal seven-zone profile, preview renderer, pinned
   calibration campaign, blind comparison evidence, and promotion export.
@@ -42,6 +45,7 @@ python -m pytest -q
 python -m pytest -q tests/test_v32_candidate.py
 python run_spatializer.py input_audio/test_input.wav --preset-mode auto_acoustic --output-mode 4ch
 python run_spatial_mixer.py --library-dir /absolute/audio/library --sofa /absolute/listener.sofa
+python run_frontal_externalization_fex1.py --library-root /absolute/audio/library --sofa /absolute/listener.sofa --output-dir /absolute/new-output --source-revision <commit>
 ```
 
 ## Constraints

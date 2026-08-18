@@ -11,9 +11,11 @@ import soundfile as sf
 
 from spatial_core import SpatialCoreProfile
 from spatial_core.frontal_evaluation import (
+    fex1_conditions,
     frontal_probe_cases,
     load_frontal_corpus,
     render_fex0_baseline,
+    render_fex1_screening,
 )
 
 
@@ -46,6 +48,33 @@ def test_frontal_probe_matrix_covers_all_requested_angles_and_distances():
     assert {case.azimuth_deg for case in cases} == {-20.0, -10.0, -5.0, 0.0, 5.0, 10.0, 20.0}
     assert {case.distance_m for case in cases} == {0.5, 1.0, 1.6, 2.5}
     assert len({case.case_id for case in cases}) == len(cases)
+
+
+def test_fex1_conditions_are_exact_single_factor_changes_plus_required_interaction():
+    conditions = {condition.id: condition for condition in fex1_conditions()}
+
+    assert tuple(conditions) == ("A", "B", "C", "D", "E", "F")
+    assert conditions["A"].changed_controls == ()
+    assert conditions["B"].changed_controls == ("hrtf_compensation_mode",)
+    assert conditions["C"].changed_controls == ("mastered_loudness_mode",)
+    assert conditions["D"].changed_controls == ("center_room_send_db",)
+    assert conditions["E"].changed_controls == ("reflection_normalization_mode",)
+    assert conditions["F"].changed_controls == (
+        "hrtf_compensation_mode",
+        "mastered_loudness_mode",
+        "center_room_send_db",
+        "reflection_normalization_mode",
+    )
+    assert conditions["B"].profile.hrtf_compensation_mode == "off"
+    assert conditions["C"].profile.mastered_loudness_mode == "fixed_scene_gain"
+    assert conditions["D"].profile.center_room_send_db == 0.0
+    assert conditions["E"].profile.reflection_normalization_mode == "physical_path_gain"
+    assert conditions["F"].profile == SpatialCoreProfile(
+        hrtf_compensation_mode="off",
+        mastered_loudness_mode="fixed_scene_gain",
+        center_room_send_db=0.0,
+        reflection_normalization_mode="physical_path_gain",
+    )
 
 
 def test_pinned_corpus_uses_relative_paths_and_sequential_little_blue_sections():
@@ -205,3 +234,127 @@ def test_fex0_condition_a_rejects_nonlegacy_profiles(tmp_path):
             profile=SpatialCoreProfile(hrtf_compensation_mode="off"),
             source_revision="test-revision",
         )
+
+
+def test_fex1_screening_exports_blind_natural_and_level_matched_conditions(tmp_path):
+    library = tmp_path / "library"
+    library.mkdir()
+    audio_path = library / "song.wav"
+    sample_rate = 48_000
+    time = np.arange(int(0.8 * sample_rate), dtype=np.float64) / sample_rate
+    stereo = np.stack(
+        [
+            0.025 * np.sin(2.0 * np.pi * 220.0 * time),
+            0.020 * np.sin(2.0 * np.pi * 330.0 * time),
+        ],
+        axis=1,
+    ).astype(np.float32)
+    sf.write(audio_path, stereo, sample_rate, subtype="FLOAT")
+    corpus_path = tmp_path / "corpus.json"
+    corpus_path.write_text(
+        json.dumps(
+            {
+                "format": "frontal_externalization_corpus",
+                "version": "1.0",
+                "tracks": [
+                    {
+                        "id": "male_reference",
+                        "role": "independent_male_vocal_mix",
+                        "relative_path": "song.wav",
+                        "sha256": sha256(audio_path.read_bytes()).hexdigest(),
+                        "excerpts": [
+                            {
+                                "id": "male_center",
+                                "role": "male_vocal",
+                                "start_s": 0.0,
+                                "duration_s": 0.5,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    sofa_path = tmp_path / "listener.sofa"
+    _write_test_sofa(sofa_path)
+
+    with pytest.warns(RuntimeWarning, match="SOFA directional coverage is sparse"):
+        manifest_path = render_fex1_screening(
+            corpus=load_frontal_corpus(corpus_path),
+            library_root=library,
+            sofa_path=sofa_path,
+            output_dir=tmp_path / "screening",
+            source_revision="test-revision",
+        )
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    serialized = json.dumps(manifest, ensure_ascii=False)
+    assert manifest["format"] == "frontal_externalization_screening"
+    assert manifest["stage"] == "FEX-1"
+    assert [item["id"] for item in manifest["conditions"]] == list("ABCDEF")
+    assert len(manifest["artifacts"]) == 6
+    assert str(tmp_path.resolve()) not in serialized
+    assert "library_root" not in serialized
+
+    answer_key_path = manifest_path.parent / manifest["answer_key_file"]
+    answer_key = json.loads(answer_key_path.read_text(encoding="utf-8"))
+    assert set(answer_key["blind_to_condition"].values()) == set("ABCDEF")
+    artifact_labels = [artifact["blind_label"] for artifact in manifest["artifacts"]]
+    condition_order_labels = [
+        next(
+            blind
+            for blind, condition in answer_key["blind_to_condition"].items()
+            if condition == condition_id
+        )
+        for condition_id in "ABCDEF"
+    ]
+    assert artifact_labels == sorted(artifact_labels)
+    assert artifact_labels != condition_order_labels
+    listening_form_path = manifest_path.parent / manifest["listening_form_file"]
+    listening_form = json.loads(listening_form_path.read_text(encoding="utf-8"))
+    assert listening_form["dimensions"] == [
+        "externalization",
+        "perceived_distance",
+        "center_stability",
+        "vocal_clarity",
+        "timbre_naturalness",
+        "double_image",
+        "overall_preference",
+    ]
+    assert len(listening_form["primary_level_matched_trials"]) == 6
+    assert len(listening_form["natural_level_confound_trials"]) == 6
+    matched_loudness = []
+    for artifact in manifest["artifacts"]:
+        for variant in ("natural_level", "level_matched"):
+            audio_file = artifact[variant]["audio_file"]
+            assert not Path(audio_file).is_absolute()
+            rendered_path = manifest_path.parent / audio_file
+            assert rendered_path.is_file()
+            wav_bytes = rendered_path.read_bytes()
+            peak_chunk = wav_bytes.find(b"PEAK")
+            assert peak_chunk >= 0
+            assert wav_bytes[peak_chunk + 12 : peak_chunk + 16] == b"\0\0\0\0"
+        assert (manifest_path.parent / artifact["diagnostics_file"]).is_file()
+        assert artifact["level_matched"]["sample_peak"] <= 0.98 + 1e-6
+        matched_loudness.append(
+            artifact["level_matched"]["integrated_loudness_lkfs"]
+        )
+    assert max(matched_loudness) - min(matched_loudness) < 0.05
+
+
+def test_fex1_cli_exposes_only_runtime_paths_and_reproducibility_inputs():
+    result = subprocess.run(
+        [sys.executable, "run_frontal_externalization_fex1.py", "--help"],
+        cwd=Path(__file__).parents[1],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "--library-root" in result.stdout
+    assert "--sofa" in result.stdout
+    assert "--output-dir" in result.stdout
+    assert "--source-revision" in result.stdout
+    assert "--profile" not in result.stdout
