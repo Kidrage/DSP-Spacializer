@@ -232,3 +232,9 @@ ratings use the level-matched files and the original seven dimensions plus two
 round-specific defect dimensions: `forehead_elevation` and
 `spectral_coloration`. Natural-level files remain a loudness-confound check.
 The answer key and diagnostics remain closed until scoring is complete.
+
+The second-round bundle generated from revision `b893ba61` has content hash
+`bf308b6259003c3854e0e91c3288ff6683cdba7a97c9ba0c13d549e34d634349`.
+All 77 files and 72 artifact payload hashes were verified, and the maximum
+within-excerpt level-matched spread is `0.0000000216 LU`. These facts establish
+reproducibility and loudness control only; blind scoring remains pending.

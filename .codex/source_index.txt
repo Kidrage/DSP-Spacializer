@@ -112,6 +112,7 @@ or `git grep` against the listed areas before opening source files.
 
 - config/frontal_externalization_corpus.json
 - config/frontal_externalization_fex0_evidence.json
+- config/frontal_externalization_fex1_bd_refinement_evidence.json
 - config/frontal_externalization_fex1_evidence.json
 - config/listener_threshold_calibration.yml
 - config/quality_thresholds.yml

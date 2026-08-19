@@ -1,0 +1,72 @@
+{
+  "format": "frontal_externalization_stage_evidence",
+  "version": "1.0",
+  "stage": "FEX-1",
+  "status": "bd_refinement_blind_scoring_ready",
+  "source_revision": "b893ba6126ea070ecaf6a6a6b85b03ac9601c708",
+  "screening_bundle": {
+    "storage": "external",
+    "manifest_filename": "manifest.json",
+    "condition_set": "bd_refinement",
+    "content_sha256": "bf308b6259003c3854e0e91c3288ff6683cdba7a97c9ba0c13d549e34d634349",
+    "parameters_sha256": "aed1e2a0c36de76f859ad486e84ff5606c4d617a366d80bf41b729bc5ed40e1f",
+    "sofa_sha256": "e7035994f5fd754058424c061380ee92b1d5ed58fccef2887a4266916616acdf",
+    "condition_excerpt_pairs": 24,
+    "natural_level_wav_files": 24,
+    "level_matched_wav_files": 24,
+    "diagnostics_files": 24,
+    "score_trials": 24,
+    "bundle_files": 77,
+    "verified_artifact_hash_failures": 0,
+    "content_hash_valid": true,
+    "absolute_paths_persisted": false,
+    "blind_order_leakage_test": "passed"
+  },
+  "condition_parameters_sha256": {
+    "R0": "536510851265beb04c67384567f9e19b1b4a9003e45edbb1e2d74e586909d65c",
+    "R1": "8a088451fb1450241f6f7459e79c3ba46ad41a0a64ca810bd2a8f6ce4b25a85b",
+    "R2": "d22ea163f776ce3688fbb995811f5db5280c042cc7fa03cf1979cfc33c19074a",
+    "R3": "40ab8af89c81839fac41d857b1e205dc17bcac24b2514cc82f5a10ed9056dcd1",
+    "R4": "5f8080db80ed26dfceb2c7a1d1570dee98f2c7008216255b26591613d26ea096",
+    "R5": "a763b70e41eeb2f0c8d98510a163f7dfa26fb80f0cb8a6fd791ca4ede8999182"
+  },
+  "loudness_evaluation": {
+    "method": "ITU-R BS.1770-4 integrated loudness",
+    "reference_condition": "R0",
+    "maximum_within_excerpt_matched_spread_lu": 0.0000000216,
+    "maximum_matched_sample_peak": 0.98000002,
+    "natural_level_check": "structured yes/no judgment-change field plus notes; not part of primary ranking"
+  },
+  "round_1_listener_findings": {
+    "B_and_F": "some out-of-head effect with severe narrow/sharp coloration",
+    "D": "strongest usable effect, primarily lifted voice toward forehead",
+    "C_and_E": "no useful externalization improvement",
+    "promoted_condition": null
+  },
+  "compatibility": {
+    "legacy_v3_2_regression_tests_passed": 16,
+    "default_spatial_v2_strength": 1.0,
+    "strength_1_path": "legacy FIR unchanged",
+    "strength_0_path": "sample-identical to existing compensation-off path",
+    "historical_fex0_profile_evidence": "unchanged",
+    "historical_fex1_condition_parameter_hashes": "unchanged"
+  },
+  "verification": {
+    "full_pytest_passed": 196,
+    "full_pytest_failed": 0,
+    "git_diff_check": "passed",
+    "standards_review": "passed after historical evidence compatibility correction",
+    "spec_review": "passed after structured natural-level confound recording"
+  },
+  "perceptual_status": {
+    "fex1_improvement_claim": "none; second-round blind scoring is pending",
+    "research_maturity": false,
+    "production_default_changed": false
+  },
+  "round_1_bundle_disposition": "moved to local Trash and remains recoverable",
+  "frozen_stages": [
+    "FEX-2",
+    "FEX-3",
+    "FEX-4"
+  ]
+}

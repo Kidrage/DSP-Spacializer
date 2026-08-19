@@ -14,7 +14,7 @@
 ## Current State
 
 - Branch: `feat/frontal-externalization-v1`
-- HEAD: `f0dc288`
+- HEAD: implementation revision `b893ba6`; refinement evidence/handoff follows
 - Indexed paths: 140
 - Inventory truncated: `false`
 - Inaccessible paths: 0
@@ -201,6 +201,21 @@
 ## Agent Notes
 
 <!-- AGENT_NOTES_START -->
+- 2026-08-19: FEX-1 round-1 listening rejected all conditions for promotion.
+  B/F had some out-of-head effect but unacceptable narrow/sharp coloration; D
+  was the strongest usable cue but mainly elevated the center toward the
+  forehead; C/E were ineffective. The prior external round-1 bundle was moved
+  to local Trash and remains recoverable.
+- A locked six-condition B/D dose-refinement bundle is now ready for blind
+  scoring. It uses fractional minimum-phase HRTF correction (not dry/wet
+  parallel blending), two center-room-send doses, level-matched primary files,
+  and nine rating dimensions with structured Natural-Level confound notes.
+  Bundle content SHA-256 is
+  `bf308b6259003c3854e0e91c3288ff6683cdba7a97c9ba0c13d549e34d634349`;
+  all artifact hashes passed. No perceptual improvement is claimed yet.
+- Full verification: 196 pytest tests; 16 frozen V3.2 regressions; standards and
+  spec reviews passed. Historical FEX-0 and initial A-F parameter evidence
+  remains reproducible. FEX-2/FEX-3/FEX-4 remain frozen.
 - 2026-08-18: FEX-0 was accepted after the pinned stereo excerpts reproduced
   the close/under-spatialized frontal voice without technical defects. FEX1-01
   and FEX1-02 are now implemented and exported for blind excerpt screening;
