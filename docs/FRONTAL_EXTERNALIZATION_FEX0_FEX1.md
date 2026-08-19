@@ -185,3 +185,50 @@ content hash `2749d3179db81e910a20be2d0c388cdc1dc9b4692bfad1c5ef1167f224e80247`.
 Its 24 level-matched trials differ by at most `0.00000001 LU` within each
 excerpt. This confirms evaluation-level equality only; it is not perceptual
 evidence for any condition.
+
+## FEX-1 round-1 listening result and B/D refinement
+
+The first blind round did not produce a promotable condition. Listener findings
+were corrected and locked as follows:
+
+- B (compensation off) and F produced some out-of-head effect, but also severe
+  narrow/sharp coloration.
+- D (`center_room_send_db = 0 dB`) was the strongest acceptable effect, but it
+  mainly lifted the voice toward the forehead instead of creating convincing
+  frontal distance.
+- C and E did not provide a useful externalization improvement.
+
+The second-round `bd_refinement` set therefore varies only the two confirmed
+dimensions. It does not change reflection geometry, DRR logic, late reverb, or
+any production default:
+
+| Internal ID | Compensation strength | Center room send |
+|---|---:|---:|
+| R0 | 1.00 | -3.0 dB |
+| R1 | 0.75 | -3.0 dB |
+| R2 | 0.50 | -3.0 dB |
+| R3 | 1.00 | -1.5 dB |
+| R4 | 1.00 | 0.0 dB |
+| R5 | 0.75 | -1.5 dB |
+
+Intermediate compensation is designed by scaling the original correction in
+decibels and regenerating its minimum-phase FIR. It is not a dry/wet parallel
+blend, avoiding an avoidable phase-comb confound. Strength 1.0 follows the
+legacy filter path exactly; strength 0.0 follows the existing off path exactly.
+
+Render the locked second-round bundle with:
+
+```bash
+python run_frontal_externalization_fex1.py \
+  --condition-set bd_refinement \
+  --library-root /path/to/audio-library \
+  --sofa /path/to/measured-listener.sofa \
+  --output-dir /path/to/new-or-empty/fex1-bd-refinement \
+  --source-revision <git-commit>
+```
+
+The bundle adds `score_sheet.csv` and `BLIND_LISTENING_GUIDE.md`. Primary
+ratings use the level-matched files and the original seven dimensions plus two
+round-specific defect dimensions: `forehead_elevation` and
+`spectral_coloration`. Natural-level files remain a loudness-confound check.
+The answer key and diagnostics remain closed until scoring is complete.

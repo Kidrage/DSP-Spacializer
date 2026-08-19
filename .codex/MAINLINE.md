@@ -27,3 +27,12 @@
 Do not change the default engine until at least three paired tracks show mean
 externalization and depth gains of 0.5 or more, with no important timbre
 utility regression greater than 0.5.
+
+## Frontal externalization FEX-1
+
+- FEX-0 is accepted; FEX-2/FEX-3/FEX-4 remain frozen.
+- Initial A–F screening found no mature condition. B/F added some out-of-head
+  effect with unacceptable narrow/sharp coloration; D was the strongest usable
+  cue but biased the center upward toward the forehead; C/E were ineffective.
+- The active gate is a locked six-condition B/D dose refinement with systematic
+  nine-dimension blind scoring. Production defaults remain unchanged.

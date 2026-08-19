@@ -56,7 +56,10 @@ def _apply_hrir(signal: np.ndarray, hrir: InterpolatedHrir) -> np.ndarray:
     return np.asarray(output, dtype=np.float32)
 
 
-def _apply_common_field_compensation(audio: np.ndarray, correction_ir: np.ndarray) -> np.ndarray:
+def _apply_common_field_compensation(
+    audio: np.ndarray,
+    correction_ir: np.ndarray,
+) -> np.ndarray:
     value = np.asarray(audio, dtype=np.float32)
     output = np.zeros((value.shape[0] + correction_ir.size - 1, 2), dtype=np.float32)
     for ear in range(2):
@@ -389,10 +392,16 @@ class SofaBinauralRenderer:
             diffuse_foa[: scene.num_frames] += scene.bed.audio
         if np.any(diffuse_foa):
             self._render_foa(database, diffuse_foa, output, scene.sample_rate)
-        if self.profile.hrtf_compensation_mode == "legacy_front_common":
+        compensation_active = (
+            self.profile.hrtf_compensation_mode == "legacy_front_common"
+            and self.profile.hrtf_compensation_strength > 0.0
+        )
+        if compensation_active:
             output = _apply_common_field_compensation(
                 output,
-                database.timbre_compensation_ir,
+                database.timbre_compensation_for_strength(
+                    self.profile.hrtf_compensation_strength
+                ),
             )
         else:
             output = np.pad(
@@ -454,16 +463,22 @@ class SofaBinauralRenderer:
             "sofa_front_reference_gain": database.front_reference_gain,
             "hrtf_timbre_compensation": (
                 "front-common-field"
-                if self.profile.hrtf_compensation_mode == "legacy_front_common"
+                if compensation_active
                 else "off"
             ),
             "hrtf_compensation_phase": (
                 "minimum"
-                if self.profile.hrtf_compensation_mode == "legacy_front_common"
+                if compensation_active
                 else "disabled"
             ),
-            "hrtf_compensation_max_boost_db": database.timbre_compensation_max_boost_db,
-            "hrtf_compensation_max_cut_db": database.timbre_compensation_max_cut_db,
+            "hrtf_compensation_max_boost_db": (
+                database.timbre_compensation_max_boost_db
+                * self.profile.hrtf_compensation_strength
+            ),
+            "hrtf_compensation_max_cut_db": (
+                database.timbre_compensation_max_cut_db
+                * self.profile.hrtf_compensation_strength
+            ),
             "mastered_loudness_gain_db": mastered_loudness_gain_db,
             "mastered_loudness_peak_limited": mastered_loudness_peak_limited,
             "limiter_gain": limiter_gain,
@@ -472,4 +487,8 @@ class SofaBinauralRenderer:
         }
         if self.profile.mastered_loudness_mode != "legacy_input_rms":
             diagnostics["mastered_loudness_mode"] = self.profile.mastered_loudness_mode
+        if self.profile.hrtf_compensation_strength != 1.0:
+            diagnostics["hrtf_compensation_strength"] = (
+                self.profile.hrtf_compensation_strength
+            )
         return RenderResult(limited, scene.sample_rate, diagnostics)

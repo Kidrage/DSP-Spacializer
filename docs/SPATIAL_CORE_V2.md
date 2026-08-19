@@ -130,6 +130,7 @@ static clarity/depth candidate:
 | `late_reverb_level_db` | -27 | -40 to -12 |
 | `late_rt60_s` | 0.35 | 0.15–1.20 |
 | `hrtf_compensation_mode` | `legacy_front_common` | `legacy_front_common`, `off` |
+| `hrtf_compensation_strength` | 1.0 | 0–1 |
 | `mastered_loudness_mode` | `legacy_input_rms` | `legacy_input_rms`, `fixed_scene_gain`, `level_matched_eval` |
 | `center_room_send_db` | -3 | -12 to +6 |
 | `reflection_normalization_mode` | `legacy_per_object` | `legacy_per_object`, `physical_path_gain` |
@@ -195,7 +196,9 @@ diagnostic warning; above 45° fails. The FOA bed is decoded to each ear by a
 regularized first-order spherical-harmonic projection over the measured set.
 After object and bed summation, the same minimum-phase frontal common-field
 compensation is applied to both ears; its boost/cut limits and phase type are
-included in render diagnostics.
+included in render diagnostics. FEX-1 may opt into a fractional compensation
+strength; the default 1.0 uses the legacy FIR unchanged, while intermediate
+values scale the correction in decibels before minimum-phase FIR generation.
 
 Trajectory files use `spatial_core_listener_trajectory` 1.0 with strictly increasing
 time keyframes. Yaw/pitch/roll are interpolated with SLERP and endpoints hold.

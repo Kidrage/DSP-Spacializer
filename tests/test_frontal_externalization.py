@@ -11,6 +11,7 @@ import soundfile as sf
 
 from spatial_core import SpatialCoreProfile
 from spatial_core.frontal_evaluation import (
+    fex1_bd_refinement_conditions,
     fex1_conditions,
     frontal_probe_cases,
     load_frontal_corpus,
@@ -74,6 +75,27 @@ def test_fex1_conditions_are_exact_single_factor_changes_plus_required_interacti
         mastered_loudness_mode="fixed_scene_gain",
         center_room_send_db=0.0,
         reflection_normalization_mode="physical_path_gain",
+    )
+
+
+def test_fex1_bd_refinement_conditions_dose_only_confirmed_b_and_d_dimensions():
+    conditions = {condition.id: condition for condition in fex1_bd_refinement_conditions()}
+
+    assert tuple(conditions) == ("R0", "R1", "R2", "R3", "R4", "R5")
+    assert conditions["R0"].changed_controls == ()
+    assert conditions["R1"].changed_controls == ("hrtf_compensation_strength",)
+    assert conditions["R1"].profile.hrtf_compensation_strength == 0.75
+    assert conditions["R2"].profile.hrtf_compensation_strength == 0.5
+    assert conditions["R3"].changed_controls == ("center_room_send_db",)
+    assert conditions["R3"].profile.center_room_send_db == -1.5
+    assert conditions["R4"].profile.center_room_send_db == 0.0
+    assert conditions["R5"].changed_controls == (
+        "hrtf_compensation_strength",
+        "center_room_send_db",
+    )
+    assert conditions["R5"].profile == SpatialCoreProfile(
+        hrtf_compensation_strength=0.75,
+        center_room_send_db=-1.5,
     )
 
 
@@ -178,6 +200,7 @@ def test_fex0_baseline_bundle_is_complete_and_does_not_persist_absolute_paths(tm
     serialized = json.dumps(manifest, ensure_ascii=False)
     assert manifest["format"] == "frontal_externalization_baseline"
     assert manifest["stage"] == "FEX-0"
+    assert "hrtf_compensation_strength" not in manifest["parameters"]["profile"]
     assert len(manifest["artifacts"]) == 57
     assert str(tmp_path.resolve()) not in serialized
     assert "library_root" not in serialized
@@ -292,6 +315,24 @@ def test_fex1_screening_exports_blind_natural_and_level_matched_conditions(tmp_p
     serialized = json.dumps(manifest, ensure_ascii=False)
     assert manifest["format"] == "frontal_externalization_screening"
     assert manifest["stage"] == "FEX-1"
+    assert "condition_set" not in manifest["parameters"]
+    assert manifest["parameters"]["level_match_reference"] == "A"
+    assert all(
+        "hrtf_compensation_strength" not in item["profile"]
+        for item in manifest["conditions"]
+    )
+    assert {
+        item["id"]: item["parameters_sha256"] for item in manifest["conditions"]
+    } == {
+        "A": "4cf363a3c0b5eb47ef8e0f2605193c5e7b6bc3ae8c6354d3136c4ccf42e1c1cc",
+        "B": "49d6b8af47210e052bdcd4e3b0183fd19513674b05c29aca60c1ae24738e7c19",
+        "C": "c776eebc5f748f56a3ee5df7758316f1f2c58c9414f3865964850a43ec35ff3a",
+        "D": "447ee5a00eb16a47eab5cb3c66f44e7b85518680cb7a94b4580f7a5058804aa6",
+        "E": "d2b04dc39033ce4ce4b7453cd7f98de16b2dea0fa23caf16769a661e394c5220",
+        "F": "611521c5b955f41fe2642238cea54e0715b352f992238c2ddfe7ca4c2b2bc50a",
+    }
+    assert "score_sheet_file" not in manifest
+    assert "listening_guide_file" not in manifest
     assert [item["id"] for item in manifest["conditions"]] == list("ABCDEF")
     assert len(manifest["artifacts"]) == 6
     assert str(tmp_path.resolve()) not in serialized
@@ -342,6 +383,83 @@ def test_fex1_screening_exports_blind_natural_and_level_matched_conditions(tmp_p
         )
     assert max(matched_loudness) - min(matched_loudness) < 0.05
 
+    with pytest.warns(RuntimeWarning, match="SOFA directional coverage is sparse"):
+        refinement_manifest_path = render_fex1_screening(
+            corpus=load_frontal_corpus(corpus_path),
+            library_root=library,
+            sofa_path=sofa_path,
+            output_dir=tmp_path / "bd-refinement",
+            source_revision="test-revision",
+            condition_set="bd_refinement",
+        )
+
+    refinement = json.loads(refinement_manifest_path.read_text(encoding="utf-8"))
+    assert [item["id"] for item in refinement["conditions"]] == [
+        "R0",
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+    ]
+    assert refinement["parameters"]["condition_set"] == "bd_refinement"
+    assert refinement["parameters"]["level_match_reference"] == "R0"
+    refinement_form = json.loads(
+        (refinement_manifest_path.parent / refinement["listening_form_file"]).read_text(
+            encoding="utf-8"
+        )
+    )
+    assert refinement_form["dimensions"][-2:] == [
+        "forehead_elevation",
+        "spectral_coloration",
+    ]
+    assert refinement_form["dimension_guidance"]["forehead_elevation"].startswith(
+        "1 = none"
+    )
+    assert refinement_form["dimension_guidance"]["spectral_coloration"].startswith(
+        "1 = none"
+    )
+    assert all(
+        set(trial["ratings"]) == set(refinement_form["dimensions"])
+        for trial in refinement_form["primary_level_matched_trials"]
+    )
+    score_sheet = refinement_manifest_path.parent / refinement["score_sheet_file"]
+    score_lines = score_sheet.read_text(encoding="utf-8").splitlines()
+    assert len(score_lines) == 7
+    assert score_lines[0].split(",") == [
+        "trial_id",
+        "track_id",
+        "excerpt_id",
+        "blind_label",
+        "audio_file",
+        *refinement_form["dimensions"],
+        "notes",
+        "natural_level_judgment_changed",
+        "natural_level_notes",
+    ]
+    guide = (
+        refinement_manifest_path.parent / refinement["listening_guide_file"]
+    ).read_text(encoding="utf-8")
+    assert "Level-Matched" in guide
+    assert "answer_key.json" in guide
+    assert "Natural-Level" in guide
+
+
+def test_fex1_screening_rejects_unknown_condition_sets(tmp_path):
+    with pytest.raises(ValueError, match="condition_set"):
+        render_fex1_screening(
+            corpus=load_frontal_corpus(
+                Path(__file__).parents[1]
+                / "config"
+                / "frontal_externalization_corpus.json"
+            ),
+            library_root=tmp_path,
+            sofa_path=tmp_path / "missing.sofa",
+            output_dir=tmp_path / "screening",
+            source_revision="test-revision",
+            condition_set="custom",
+        )
+
 
 def test_fex1_cli_exposes_only_runtime_paths_and_reproducibility_inputs():
     result = subprocess.run(
@@ -357,4 +475,5 @@ def test_fex1_cli_exposes_only_runtime_paths_and_reproducibility_inputs():
     assert "--sofa" in result.stdout
     assert "--output-dir" in result.stdout
     assert "--source-revision" in result.stdout
+    assert "--condition-set" in result.stdout
     assert "--profile" not in result.stdout

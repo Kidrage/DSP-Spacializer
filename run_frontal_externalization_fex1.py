@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the locked FEX-1 frontal binaural screening bundle."""
+"""Render a locked FEX-1 frontal binaural screening bundle."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ DEFAULT_CORPUS = REPOSITORY_ROOT / "config" / "frontal_externalization_corpus.js
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Render the fixed A-F FEX-1 screening excerpts as Natural-Level and "
+            "Render a fixed FEX-1 screening set as Natural-Level and "
             "BS.1770 Level-Matched Evaluation files."
         )
     )
@@ -35,6 +35,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--corpus", default=str(DEFAULT_CORPUS))
     parser.add_argument("--peak-ceiling", type=float, default=0.98)
+    parser.add_argument(
+        "--condition-set",
+        choices=("initial", "bd_refinement"),
+        default="initial",
+        help="Locked causal matrix to render (default: initial).",
+    )
     return parser
 
 
@@ -48,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=args.output_dir,
             source_revision=args.source_revision,
             peak_ceiling=args.peak_ceiling,
+            condition_set=args.condition_set,
         )
     except ValueError as exc:
         raise SystemExit(f"error: {exc}") from exc

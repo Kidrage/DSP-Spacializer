@@ -63,6 +63,7 @@ def _front_common_field_compensation(
     sample_rate: int,
     *,
     num_taps: int = 4097,
+    strength: float = 1.0,
 ) -> tuple[np.ndarray, float, float]:
     """Return a bounded minimum-phase inverse of the frontal common transfer.
 
@@ -87,7 +88,7 @@ def _front_common_field_compensation(
     padding = window.size // 2
     smoothed_db = np.convolve(np.pad(common_db, padding, mode="edge"), window, mode="valid")
     reference_db = float(np.interp(1_000.0, control_frequencies, smoothed_db))
-    correction_db = np.clip(reference_db - smoothed_db, -18.0, 25.0)
+    correction_db = strength * np.clip(reference_db - smoothed_db, -18.0, 25.0)
     design_frequencies = np.concatenate(([0.0], control_frequencies)) / nyquist
     design_gain = 10.0 ** (np.concatenate(([correction_db[0]], correction_db)) / 20.0)
     linear_compensation = firwin2(num_taps, design_frequencies, design_gain)
@@ -163,6 +164,25 @@ class SofaHrirDatabase:
             self.timbre_compensation_max_boost_db,
             self.timbre_compensation_max_cut_db,
         ) = _front_common_field_compensation(self.ir[front_index], self.sample_rate)
+        self._front_ir = self.ir[front_index]
+        self._timbre_compensation_cache = {1.0: self.timbre_compensation_ir}
+
+    def timbre_compensation_for_strength(self, strength: float) -> np.ndarray:
+        """Return a minimum-phase filter with its correction scaled in decibels."""
+
+        key = float(strength)
+        if key == 0.0:
+            impulse = np.zeros_like(self.timbre_compensation_ir)
+            impulse[0] = 1.0
+            return impulse
+        if key not in self._timbre_compensation_cache:
+            correction, _, _ = _front_common_field_compensation(
+                self._front_ir,
+                self.sample_rate,
+                strength=key,
+            )
+            self._timbre_compensation_cache[key] = correction
+        return self._timbre_compensation_cache[key]
 
     def angular_errors(self, azimuth_deg: float, elevation_deg: float) -> np.ndarray:
         target = _unit_vectors(np.asarray([azimuth_deg]), np.asarray([elevation_deg]))[0]

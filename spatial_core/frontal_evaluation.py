@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import asdict, dataclass
 from hashlib import sha256
+from io import StringIO
 import json
 from math import gcd
 from pathlib import Path, PurePosixPath
@@ -112,6 +114,50 @@ def fex1_conditions() -> tuple[Fex1Condition, ...]:
             ),
         ),
     )
+
+
+def fex1_bd_refinement_conditions() -> tuple[Fex1Condition, ...]:
+    """Return the locked second-round matrix for the confirmed B/D dimensions."""
+
+    return (
+        Fex1Condition("R0", (), SpatialCoreProfile()),
+        Fex1Condition(
+            "R1",
+            ("hrtf_compensation_strength",),
+            SpatialCoreProfile(hrtf_compensation_strength=0.75),
+        ),
+        Fex1Condition(
+            "R2",
+            ("hrtf_compensation_strength",),
+            SpatialCoreProfile(hrtf_compensation_strength=0.50),
+        ),
+        Fex1Condition(
+            "R3",
+            ("center_room_send_db",),
+            SpatialCoreProfile(center_room_send_db=-1.5),
+        ),
+        Fex1Condition(
+            "R4",
+            ("center_room_send_db",),
+            SpatialCoreProfile(center_room_send_db=0.0),
+        ),
+        Fex1Condition(
+            "R5",
+            ("hrtf_compensation_strength", "center_room_send_db"),
+            SpatialCoreProfile(
+                hrtf_compensation_strength=0.75,
+                center_room_send_db=-1.5,
+            ),
+        ),
+    )
+
+
+def _fex1_condition_set(name: str) -> tuple[tuple[Fex1Condition, ...], str]:
+    if name == "initial":
+        return fex1_conditions(), "A"
+    if name == "bd_refinement":
+        return fex1_bd_refinement_conditions(), "R0"
+    raise ValueError("condition_set must be one of: bd_refinement, initial")
 
 
 def _number_token(value: float) -> str:
@@ -266,6 +312,11 @@ def _write_json(path: Path, payload: object) -> str:
         json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    return _file_sha256(path)
+
+
+def _write_text(path: Path, value: str) -> str:
+    path.write_text(value, encoding="utf-8")
     return _file_sha256(path)
 
 
@@ -534,9 +585,11 @@ def render_fex0_baseline(
                 },
             )
 
+    profile_parameters = asdict(profile)
+    profile_parameters.pop("hrtf_compensation_strength")
     parameters = {
         "condition": "A",
-        "profile": asdict(profile),
+        "profile": profile_parameters,
         "room_profile": "balanced-depth",
         "sample_rate": sample_rate,
         "probe_duration_s": probe_duration_s,
@@ -570,9 +623,11 @@ def render_fex1_screening(
     source_revision: str,
     sample_rate: int = 48_000,
     peak_ceiling: float = 0.98,
+    condition_set: str = "initial",
 ) -> Path:
     """Render the locked FEX-1 excerpt matrix and return its manifest."""
 
+    conditions, reference_condition = _fex1_condition_set(condition_set)
     revision = source_revision.strip() if isinstance(source_revision, str) else ""
     if _SOURCE_REVISION_PATTERN.fullmatch(revision) is None:
         raise ValueError("source_revision must be a path-free revision identifier")
@@ -597,7 +652,6 @@ def render_fex1_screening(
     diagnostics_dir.mkdir(parents=True, exist_ok=True)
 
     sofa_digest = _file_sha256(measured_sofa)
-    conditions = fex1_conditions()
     blind_order = sorted(
         conditions,
         key=lambda condition: sha256(
@@ -612,6 +666,8 @@ def render_fex1_screening(
     condition_hashes: dict[str, str] = {}
     for condition in conditions:
         parameters = asdict(condition.profile)
+        if condition_set == "initial":
+            parameters.pop("hrtf_compensation_strength")
         parameters_digest = sha256(_canonical_bytes(parameters)).hexdigest()
         condition_hashes[condition.id] = parameters_digest
         condition_payloads.append(
@@ -655,7 +711,7 @@ def render_fex1_screening(
             matched_group = level_match_group_bs1770(
                 natural_audio,
                 sample_rate,
-                reference_key="A",
+                reference_key=reference_condition,
                 peak_ceiling=float(peak_ceiling),
             )
             for condition in conditions:
@@ -688,7 +744,7 @@ def render_fex1_screening(
                 natural_peak = float(np.max(np.abs(natural_audio[condition.id])))
                 evaluation = {
                     "method": "ITU-R BS.1770-4 integrated loudness",
-                    "reference_condition": "A",
+                    "reference_condition": reference_condition,
                     "reference_loudness_lkfs": matched_group.reference_loudness_lkfs,
                     "final_target_loudness_lkfs": matched_group.final_target_loudness_lkfs,
                     "shared_headroom_gain_db": matched_group.shared_headroom_gain_db,
@@ -762,6 +818,8 @@ def render_fex1_screening(
         },
         "condition_parameters_sha256": condition_hashes,
     }
+    if condition_set == "bd_refinement":
+        answer_key["condition_set"] = condition_set
     answer_key_path = destination / "answer_key.json"
     answer_key_digest = _write_json(answer_key_path, answer_key)
     listening_dimensions = [
@@ -773,6 +831,32 @@ def render_fex1_screening(
         "double_image",
         "overall_preference",
     ]
+    if condition_set == "bd_refinement":
+        listening_dimensions.extend(
+            [
+                "forehead_elevation",
+                "spectral_coloration",
+            ]
+        )
+    dimension_guidance = {
+        "double_image": "1 = none/stable single image; 7 = severe duplicate image",
+        "other_dimensions": "1 = poor/low; 7 = excellent/high",
+    }
+    if condition_set == "bd_refinement":
+        dimension_guidance = {
+            "double_image": "1 = none/stable single image; 7 = severe duplicate image",
+            "positive_dimensions": (
+                "externalization, perceived_distance, center_stability, vocal_clarity, "
+                "timbre_naturalness, and overall_preference: 1 = poor/low; "
+                "7 = excellent/high"
+            ),
+                "forehead_elevation": (
+                    "1 = none/correct frontal height; 7 = severe lift toward forehead"
+                ),
+                "spectral_coloration": (
+                    "1 = none/natural; 7 = severe narrow or sharp coloration"
+                ),
+        }
 
     def listening_trials(variant: str) -> list[dict[str, object]]:
         trials = []
@@ -801,29 +885,90 @@ def render_fex1_screening(
             )
         return trials
 
-    listening_form = {
+    listening_form: dict[str, object] = {
         "format": "frontal_externalization_listening_form",
         "version": "1.0",
         "stage": "FEX-1",
         "rating_scale": {"minimum": 1, "maximum": 7},
         "dimensions": listening_dimensions,
-        "dimension_guidance": {
-            "double_image": "1 = none/stable single image; 7 = severe duplicate image",
-            "other_dimensions": "1 = poor/low; 7 = excellent/high",
-        },
+        "dimension_guidance": dimension_guidance,
         "primary_level_matched_trials": listening_trials("level_matched"),
         "natural_level_confound_trials": listening_trials("natural_level"),
     }
+    if condition_set == "bd_refinement":
+        listening_form["protocol"] = {
+            "primary_variant": "primary_level_matched_trials",
+            "natural_level_use": (
+                "confound check only; do not rank it as the primary result"
+            ),
+            "blindness": (
+                "Do not open answer_key.json or diagnostics before scoring is complete"
+            ),
+        }
     listening_form_path = destination / "listening_form.json"
     listening_form_digest = _write_json(listening_form_path, listening_form)
+    score_sheet_path: Path | None = None
+    score_sheet_digest: str | None = None
+    listening_guide_path: Path | None = None
+    listening_guide_digest: str | None = None
+    if condition_set == "bd_refinement":
+        score_buffer = StringIO(newline="")
+        score_writer = csv.writer(score_buffer, lineterminator="\n")
+        score_writer.writerow(
+            [
+                "trial_id",
+                "track_id",
+                "excerpt_id",
+                "blind_label",
+                "audio_file",
+                *listening_dimensions,
+                "notes",
+                "natural_level_judgment_changed",
+                "natural_level_notes",
+            ]
+        )
+        primary_trials = listening_form["primary_level_matched_trials"]
+        assert isinstance(primary_trials, list)
+        for trial in primary_trials:
+            assert isinstance(trial, dict)
+            score_writer.writerow(
+                [
+                    trial["trial_id"],
+                    trial["track_id"],
+                    trial["excerpt_id"],
+                    trial["blind_label"],
+                    trial["audio_file"],
+                    *([""] * len(listening_dimensions)),
+                    "",
+                    "",
+                    "",
+                ]
+            )
+        score_sheet_path = destination / "score_sheet.csv"
+        score_sheet_digest = _write_text(score_sheet_path, score_buffer.getvalue())
+        guide = """# FEX-1 盲听评分指南
+
+1. 不要在完成评分前打开 `answer_key.json` 或 `diagnostics/`。
+2. 主评只使用 `audio/level_matched/`（Level-Matched），按 `score_sheet.csv` 每行填写 1–7 分。
+3. `externalization`、`perceived_distance`、`center_stability`、`vocal_clarity`、`timbre_naturalness`、`overall_preference`：分数越高越好。
+4. `double_image`、`forehead_elevation`、`spectral_coloration`：分数越低越好；1 表示没有该问题，7 表示问题严重。
+5. 先完成所有 Level-Matched 评分，再听 `audio/natural_level/`（Natural-Level）；后者只检查响度是否影响判断，不参与主排名。在 `natural_level_judgment_changed` 填 `yes` 或 `no`，并按需填写原因。
+6. 同一设备、音量和佩戴位置完成一轮；可分多次休息，但不要在轮次中改变系统空间音频或耳机设置。
+
+本轮只筛选 B（HRTF 正前补偿强度）与 D（中心房间发送）两类已确认维度，不代表已经证明正前方外化改善。
+"""
+        listening_guide_path = destination / "BLIND_LISTENING_GUIDE.md"
+        listening_guide_digest = _write_text(listening_guide_path, guide)
     parameters = {
         "conditions": condition_payloads,
         "room_profile": "balanced-depth",
         "sample_rate": sample_rate,
         "loudness_method": "ITU-R BS.1770-4 integrated loudness",
-        "level_match_reference": "A",
+        "level_match_reference": reference_condition,
         "peak_ceiling": float(peak_ceiling),
     }
+    if condition_set == "bd_refinement":
+        parameters["condition_set"] = condition_set
     manifest: dict[str, object] = {
         "format": "frontal_externalization_screening",
         "version": "1.0",
@@ -839,6 +984,17 @@ def render_fex1_screening(
         "listening_form_sha256": listening_form_digest,
         "artifacts": artifacts,
     }
+    if condition_set == "bd_refinement":
+        assert score_sheet_path is not None and score_sheet_digest is not None
+        assert listening_guide_path is not None and listening_guide_digest is not None
+        manifest.update(
+            {
+                "score_sheet_file": score_sheet_path.name,
+                "score_sheet_sha256": score_sheet_digest,
+                "listening_guide_file": listening_guide_path.name,
+                "listening_guide_sha256": listening_guide_digest,
+            }
+        )
     manifest["content_sha256"] = sha256(_canonical_bytes(manifest)).hexdigest()
     manifest_path = destination / "manifest.json"
     _write_json(manifest_path, manifest)

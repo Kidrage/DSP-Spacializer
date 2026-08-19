@@ -27,6 +27,7 @@ LEGACY_PARAMETER_NAMES = (
 
 FRONTAL_EXPERIMENT_NAMES = (
     "hrtf_compensation_mode",
+    "hrtf_compensation_strength",
     "mastered_loudness_mode",
     "center_room_send_db",
     "reflection_normalization_mode",
@@ -45,6 +46,7 @@ PARAMETER_RANGES = {
     "late_reverb_level_db": (-40.0, -12.0),
     "late_rt60_s": (0.15, 1.20),
     "center_room_send_db": (-12.0, 6.0),
+    "hrtf_compensation_strength": (0.0, 1.0),
 }
 
 MODE_VALUES = {
@@ -72,6 +74,7 @@ class SpatialCoreProfile:
     late_reverb_level_db: float = -27.0
     late_rt60_s: float = 0.35
     hrtf_compensation_mode: str = "legacy_front_common"
+    hrtf_compensation_strength: float = 1.0
     mastered_loudness_mode: str = "legacy_input_rms"
     center_room_send_db: float = -3.0
     reflection_normalization_mode: str = "legacy_per_object"

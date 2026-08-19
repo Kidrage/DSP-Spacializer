@@ -101,6 +101,7 @@ def test_builder_serializes_active_frontal_experiment_controls():
         "late_reverb_level_db": -27.0,
         "late_rt60_s": 0.35,
         "hrtf_compensation_mode": "off",
+        "hrtf_compensation_strength": 1.0,
         "mastered_loudness_mode": "fixed_scene_gain",
         "center_room_send_db": 0.0,
         "reflection_normalization_mode": "physical_path_gain",

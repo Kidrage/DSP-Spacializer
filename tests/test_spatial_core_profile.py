@@ -9,6 +9,7 @@ def test_spatial_profile_defaults_preserve_legacy_frontal_modes():
     profile = SpatialCoreProfile()
 
     assert profile.hrtf_compensation_mode == "legacy_front_common"
+    assert profile.hrtf_compensation_strength == 1.0
     assert profile.mastered_loudness_mode == "legacy_input_rms"
     assert profile.center_room_send_db == -3.0
     assert profile.reflection_normalization_mode == "legacy_per_object"
@@ -56,6 +57,7 @@ def test_spatial_profile_loads_frontal_experiment_controls(tmp_path):
                 "version": "1.0",
                 "parameters": {
                     "hrtf_compensation_mode": "off",
+                    "hrtf_compensation_strength": 0.5,
                     "mastered_loudness_mode": "fixed_scene_gain",
                     "center_room_send_db": 0.0,
                     "reflection_normalization_mode": "physical_path_gain",
@@ -69,6 +71,7 @@ def test_spatial_profile_loads_frontal_experiment_controls(tmp_path):
     profile = load_spatial_profile(path)
 
     assert profile.hrtf_compensation_mode == "off"
+    assert profile.hrtf_compensation_strength == 0.5
     assert profile.mastered_loudness_mode == "fixed_scene_gain"
     assert profile.center_room_send_db == 0.0
     assert profile.reflection_normalization_mode == "physical_path_gain"
@@ -127,9 +130,10 @@ def test_spatial_profile_rejects_boolean_parameter_values(tmp_path):
         load_spatial_profile(path)
 
 
-def test_spatial_profile_constructor_rejects_boolean_values():
-    with pytest.raises(ValueError, match="center_anchor must be numeric"):
-        SpatialCoreProfile(center_anchor=True)
+@pytest.mark.parametrize("name", ["center_anchor", "hrtf_compensation_strength"])
+def test_spatial_profile_constructor_rejects_boolean_values(name):
+    with pytest.raises(ValueError, match=f"{name} must be numeric"):
+        SpatialCoreProfile(**{name: True})
 
 
 @pytest.mark.parametrize(
@@ -160,6 +164,7 @@ def test_spatial_profile_rejects_unknown_frontal_modes(name, value):
         ("late_reverb_level_db", -41),
         ("late_rt60_s", 1.3),
         ("center_room_send_db", 6.1),
+        ("hrtf_compensation_strength", 1.1),
     ],
 )
 def test_spatial_profile_rejects_out_of_range_parameters(tmp_path, name, value):

@@ -206,6 +206,62 @@ def test_binaural_renderer_can_disable_front_common_field_compensation(tmp_path)
     assert uncompensated.diagnostics["hrtf_compensation_phase"] == "disabled"
 
 
+def test_binaural_renderer_can_dose_front_common_field_compensation(tmp_path):
+    _write_colored_test_sofa(tmp_path / "colored.sofa")
+    signal = np.zeros(4_096, dtype=np.float32)
+    signal[512] = 0.01
+    scene = SpatialScene(48_000, [SpatialObject("reference", "front", signal)])
+
+    common = {
+        "mastered_loudness_mode": "fixed_scene_gain",
+    }
+    legacy = SofaBinauralRenderer(
+        tmp_path / "colored.sofa",
+        room_enabled=False,
+        profile=SpatialCoreProfile(**common),
+    ).render(scene)
+    uncompensated = SofaBinauralRenderer(
+        tmp_path / "colored.sofa",
+        room_enabled=False,
+        profile=SpatialCoreProfile(hrtf_compensation_mode="off", **common),
+    ).render(scene)
+    half = SofaBinauralRenderer(
+        tmp_path / "colored.sofa",
+        room_enabled=False,
+        profile=SpatialCoreProfile(hrtf_compensation_strength=0.5, **common),
+    ).render(scene)
+
+    nfft = 1 << int(np.ceil(np.log2(legacy.audio.shape[0])))
+    legacy_magnitude = np.abs(np.fft.rfft(legacy.audio[:, 0], nfft))
+    half_magnitude = np.abs(np.fft.rfft(half.audio[:, 0], nfft))
+    dry_magnitude = np.abs(np.fft.rfft(uncompensated.audio[:, 0], nfft))
+    frequencies = np.fft.rfftfreq(nfft, 1.0 / 48_000)
+    legacy_db = 20.0 * np.log10(
+        np.maximum(legacy_magnitude, 1e-12) / np.maximum(dry_magnitude, 1e-12)
+    )
+    half_db = 20.0 * np.log10(
+        np.maximum(half_magnitude, 1e-12) / np.maximum(dry_magnitude, 1e-12)
+    )
+    informative = (
+        (frequencies >= 50.0)
+        & (frequencies <= 16_000.0)
+        & (np.abs(legacy_db) >= 1.0)
+    )
+
+    assert (
+        np.median(np.abs(half_db[informative] - 0.5 * legacy_db[informative]))
+        < 0.35
+    )
+    zero = SofaBinauralRenderer(
+        tmp_path / "colored.sofa",
+        room_enabled=False,
+        profile=SpatialCoreProfile(hrtf_compensation_strength=0.0, **common),
+    ).render(scene)
+    assert np.array_equal(zero.audio, uncompensated.audio)
+    assert "hrtf_compensation_strength" not in legacy.diagnostics
+    assert half.diagnostics["hrtf_compensation_strength"] == 0.5
+
+
 def test_common_field_compensation_preserves_interaural_cues(tmp_path):
     _write_colored_test_sofa(tmp_path / "test.sofa")
     signal = np.zeros(4_096, dtype=np.float32)
